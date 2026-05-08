@@ -1,98 +1,154 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+CareFlow Backend API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+CareFlow is a real-time Emergency Department Management System designed to streamline emergency room workflows, patient triage, doctor collaboration, billing, notifications, and follow-up appointments.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+This backend provides a secure RESTful API with role-based access control (RBAC), real-time WebSocket notifications, and modular clinical workflow management.
 
-## Description
+Features:
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Authentication & Authorization:
+JWT Authentication
+Refresh Token Rotation
+Role-Based Access Control (RBAC)
+Password Reset Flow
+Session Revocation
 
-## Project setup
+Emergency Department Workflow:
+Quick Emergency Patient Registration
+Emergency Case Lifecycle Management
+Triage Classification
+Doctor Assignment
+Clinical Notes & Vital Signs
+Medication Prescription & Administration
+Case Timeline Tracking
+Discharge Summary Generation
 
-```bash
-$ npm install
-```
+Real-Time System:
+WebSocket Notifications using Socket.IO
+Critical Patient Alerts
+Queue Updates
+Lab & Imaging Notifications
 
-## Compile and run the project
+Administrative Features:
+Staff Management
+Audit Logs
+Billing & Insurance
+Appointment Scheduling
 
-```bash
-# development
-$ npm run start
+Tech Stack:
+Backend
+NestJS
+TypeScript
+Node.js
+Database
+PostgreSQL
+Prisma ORM
 
-# watch mode
-$ npm run start:dev
+Authentication:
+JWT
+Refresh Tokens
+bcrypt
 
-# production mode
-$ npm run start:prod
-```
+Real-Time Communication:
+Socket.IO
 
-## Run tests
+Documentation:
+Swagger / OpenAPI
 
-```bash
-# unit tests
-$ npm run test
 
-# e2e tests
-$ npm run test:e2e
+System Architecture:
 
-# test coverage
-$ npm run test:cov
-```
+The backend is organized into modular services:
 
-## Deployment
+src/
+│
+├── auth/
+├── patients/
+├── cases/
+├── triage/
+├── queue/
+├── doctors/
+├── nurses/
+├── admin/
+├── notifications/
+├── billing/
+├── appointments/
+├── websocket/
+├── prisma/
+└── common/
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Main Modules:
+Module	              Description
+Authentication	      Login, JWT, password management
+Patient Management	  Patient profiles and medical records
+Emergency Cases	      Case lifecycle and workflow
+Triage	Severity      classification and vitals
+Queue Management	    Priority-based ER queue
+Doctor Module	        Clinical access and medications
+Nurse Module	        Vital signs and notes
+Admin Module	        User management and audit logs
+Notifications	        Real-time alerts
+Billing	              Payments and insurance
+Appointments	        Follow-up scheduling
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Roles & Permissions:
+Role	          Permissions
+ADMIN	          Full system access
+DOCTOR	        Assigned cases only
+NURSE	Active    ER cases
+RECEPTIONIST	  Registration and billing
+PATIENT	Limited self-access
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+Core Clinical Workflow:
+Patient Arrival
+      ↓
+Quick Registration
+      ↓
+Emergency Case Creation
+      ↓
+Triage Assessment
+      ↓
+Queue Prioritization
+      ↓
+Doctor Assignment
+      ↓
+Treatment & Monitoring
+      ↓
+Case Completion
+      ↓
+Discharge Summary
+      ↓
+Billing & Follow-up Appointment
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Real-Time Events
 
-## Resources
+The system uses Socket.IO for real-time communication.
 
-Check out a few resources that may come in handy when working with NestJS:
+Main Events
+Event	Description
+queue.updated	Queue changes
+notification.doctor_assigned	Doctor assigned to case
+notification.critical_triage	Critical patient alert
+notification.vitals_abnormal	Abnormal vitals
+notification.new_prescription	Medication prescribed
+notification.lab_ready	      Lab/imaging available
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Security Features:
+JWT Authentication
+Refresh Token Rotation
+Password Hashing
+Role-Based Access Control
+Case-Level Authorization
+Immutable Audit Logs
+Soft Delete Support
 
-## Support
+Design Highlights:
+Realistic Emergency Room Workflow
+Modular Scalable Architecture
+Real-Time Clinical Communication
+Timeline-Based Case Tracking
+Role-Restricted Clinical Access
+Audit Logging for Traceability
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Team
+Developed as a Software Engineering project for Emergency Department workflow management.
