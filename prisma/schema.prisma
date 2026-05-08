@@ -1,0 +1,212 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  moduleFormat = "cjs"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  
+}
+
+enum UserRole {
+  ADMIN
+  DOCTOR
+  NURSE
+  PATIENT
+  RECEPTIONIST
+}
+
+enum CaseStatus {
+  Active
+  Resolved
+  Transferred
+}
+
+enum BillStatus {
+  Pending
+  Paid
+  Sent_to_Insurance
+}
+
+model User {
+  id            Int            @id @default(autoincrement()) @map("user_id")
+  name          String
+  email         String         @unique
+  passwordHash  String         @map("password_hash")
+  role          UserRole
+  
+  // Profile Relations (One-to-One)
+  patient       Patient?
+  doctor        Doctor?
+  nurse         Nurse?
+  
+  notifications Notification[]
+}
+
+model Patient {
+  id           Int             @id @default(autoincrement()) @map("patient_id")
+  userId       Int             @unique @map("user_id")
+  user         User            @relation(fields: [userId], references: [id])
+  age          Int
+  gender       String
+  phone        String
+  
+  emergencyCases EmergencyCase[]
+  appointments   Appointment[]
+}
+
+model Doctor {
+  id             Int           @id @default(autoincrement()) @map("doctor_id")
+  userId         Int           @unique @map("user_id")
+  user           User          @relation(fields: [userId], references: [id])
+  specialization String
+  
+  caseAssignments CaseDoctor[]
+  medications     Medication[]
+  appointments    Appointment[]
+}
+
+model Nurse {
+  id           Int           @id @default(autoincrement()) @map("nurse_id")
+  userId       Int           @unique @map("user_id")
+  user         User          @relation(fields: [userId], references: [id])
+  
+  triages      Triage[]
+  vitalSigns   VitalSigns[]
+  nurseNotes   NurseNote[]
+}
+
+model EmergencyCase {
+  id           Int           @id @default(autoincrement()) @map("case_id")
+  patientId    Int           @map("patient_id")
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  status       CaseStatus    @default(Active)
+  arrivalTime  DateTime      @default(now()) @map("arrival_time")
+
+  triage       Triage?
+  medicalRecord MedicalRecord?
+  billing      Billing?
+  
+  doctors      CaseDoctor[]
+  vitalSigns   VitalSigns[]
+  medications  Medication[]
+  labResults   LabResult[]
+  imagingReports ImagingReport[]
+  nurseNotes   NurseNote[]
+  notifications Notification[]
+}
+
+model Triage {
+  id         Int           @id @default(autoincrement()) @map("triage_id")
+  caseId     Int           @unique @map("case_id")
+  case       EmergencyCase @relation(fields: [caseId], references: [id])
+  severity   String
+  triageTime DateTime      @default(now()) @map("triage_time")
+  nurseId    Int           @map("nurse_id")
+  nurse      Nurse         @relation(fields: [nurseId], references: [id])
+}
+
+model CaseDoctor {
+  id       Int           @id @default(autoincrement())
+  caseId   Int           @map("case_id")
+  case     EmergencyCase @relation(fields: [caseId], references: [id])
+  doctorId Int           @map("doctor_id")
+  doctor   Doctor        @relation(fields: [doctorId], references: [id])
+  role     String        // e.g., Primary, Consultant
+}
+
+model VitalSigns {
+  id            Int           @id @default(autoincrement())
+  caseId        Int           @map("case_id")
+  case          EmergencyCase @relation(fields: [caseId], references: [id])
+  temperature   Float
+  bloodPressure String        @map("blood_pressure")
+  heartRate     Int           @map("heart_rate")
+  nurseId       Int           @map("nurse_id")
+  nurse         Nurse         @relation(fields: [nurseId], references: [id])
+  timestamp     DateTime      @default(now())
+}
+
+model MedicalRecord {
+  id              Int           @id @default(autoincrement()) @map("record_id")
+  caseId          Int           @unique @map("case_id")
+  case            EmergencyCase @relation(fields: [caseId], references: [id])
+  diagnosis       String
+  notes           String?
+  chronicDiseases String?       @map("chronic_diseases")
+  familyHistory   String?       @map("family_history")
+}
+
+model Medication {
+  id        Int           @id @default(autoincrement())
+  caseId    Int           @map("case_id")
+  case      EmergencyCase @relation(fields: [caseId], references: [id])
+  name      String
+  dosage    String
+  doctorId  Int           @map("doctor_id")
+  doctor    Doctor        @relation(fields: [doctorId], references: [id])
+}
+
+model LabResult {
+  id     Int           @id @default(autoincrement())
+  caseId Int           @map("case_id")
+  case   EmergencyCase @relation(fields: [caseId], references: [id])
+  type   String
+  result String
+  date   DateTime      @default(now())
+}
+
+model ImagingReport {
+  id     Int           @id @default(autoincrement())
+  caseId Int           @map("case_id")
+  case   EmergencyCase @relation(fields: [caseId], references: [id])
+  type   String
+  report String
+  date   DateTime      @default(now())
+}
+
+model NurseNote {
+  id        Int           @id @default(autoincrement())
+  caseId    Int           @map("case_id")
+  case      EmergencyCase @relation(fields: [caseId], references: [id])
+  nurseId   Int           @map("nurse_id")
+  nurse     Nurse         @relation(fields: [nurseId], references: [id])
+  note      String
+  timestamp DateTime      @default(now())
+}
+
+model Notification {
+  id        Int           @id @default(autoincrement())
+  userId    Int           @map("user_id")
+  user      User          @relation(fields: [userId], references: [id])
+  caseId    Int?          @map("case_id")
+  case      EmergencyCase? @relation(fields: [caseId], references: [id])
+  message   String
+  type      String
+  isRead    Boolean       @default(false) @map("is_read")
+  createdAt DateTime      @default(now()) @map("created_at")
+}
+
+model Billing {
+  id     Int           @id @default(autoincrement()) @map("bill_id")
+  caseId Int           @unique @map("case_id")
+  case   EmergencyCase @relation(fields: [caseId], references: [id])
+  amount Float
+  status BillStatus    @default(Pending)
+}
+
+model Appointment {
+  id        Int      @id @default(autoincrement()) @map("appointment_id")
+  patientId Int      @map("patient_id")
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  doctorId  Int      @map("doctor_id")
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  date      DateTime
+  status    String   @default("Scheduled")
+}
