@@ -2,12 +2,14 @@ import {
   Controller,
   Get,
   Post,
-  Put,
+  Patch,
   Param,
+  Body,
   UseGuards,
   HttpCode,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
+import { CreateStaffUserDto, ResetPasswordDto } from './dto/create-staff-user.dto';
 import { Roles } from '@common/decorators/roles.decorator';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
@@ -20,22 +22,26 @@ export class AdminController {
 
   @Get('users')
   async listUsers() {
-    // TODO: Implement list users
+    return this.adminService.listUsers();
   }
 
-  @Post('users/staff')
+  @Post('users')
   @HttpCode(201)
-  async createStaffUser() {
-    // TODO: Implement create staff user
+  async createStaffUser(@Body() createStaffUserDto: CreateStaffUserDto) {
+    return this.adminService.createStaffUser(createStaffUserDto);
   }
 
-  @Put('users/:userId')
-  async updateUser(@Param('userId') userId: string) {
-    // TODO: Implement update user
+  @Patch('users/:userId/reset-password')
+  @HttpCode(200)
+  async resetPassword(
+    @Param('userId') userId: string,
+    @Body() resetPasswordDto: ResetPasswordDto,
+  ) {
+    return this.adminService.resetPassword(userId, resetPasswordDto);
   }
 
   @Get('audit-logs')
   async getAuditLogs() {
-    // TODO: Implement get audit logs
+    return this.adminService.getAuditLogs();
   }
 }
