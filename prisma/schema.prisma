@@ -35,7 +35,7 @@ enum BillStatus {
 }
 
 model User {
-  id            Int            @id @default(autoincrement()) @map("user_id")
+  id            String         @id @default(uuid()) @map("user_id")
   name          String
   email         String         @unique
   passwordHash  String         @map("password_hash")
@@ -50,20 +50,24 @@ model User {
 }
 
 model Patient {
-  id           Int             @id @default(autoincrement()) @map("patient_id")
-  userId       Int             @unique @map("user_id")
-  user         User            @relation(fields: [userId], references: [id])
-  age          Int
-  gender       String
-  phone        String
-  
-  emergencyCases EmergencyCase[]
-  appointments   Appointment[]
+  id              String            @id @default(uuid()) @map("patient_id")
+  userId          String?           @unique @map("user_id")
+  user            User?             @relation(fields: [userId], references: [id])
+
+  firstName       String            @default("Unknown")
+  lastName        String            @default("Unknown")
+
+  age             Int
+  gender          String
+  phone           String?
+
+  emergencyCases  EmergencyCase[]
+  appointments    Appointment[]
 }
 
 model Doctor {
-  id             Int           @id @default(autoincrement()) @map("doctor_id")
-  userId         Int           @unique @map("user_id")
+  id             String        @id @default(uuid()) @map("doctor_id")
+  userId         String        @unique @map("user_id")
   user           User          @relation(fields: [userId], references: [id])
   specialization String
   
@@ -73,8 +77,8 @@ model Doctor {
 }
 
 model Nurse {
-  id           Int           @id @default(autoincrement()) @map("nurse_id")
-  userId       Int           @unique @map("user_id")
+  id           String        @id @default(uuid()) @map("nurse_id")
+  userId       String        @unique @map("user_id")
   user         User          @relation(fields: [userId], references: [id])
   
   triages      Triage[]
@@ -83,8 +87,8 @@ model Nurse {
 }
 
 model EmergencyCase {
-  id           Int           @id @default(autoincrement()) @map("case_id")
-  patientId    Int           @map("patient_id")
+  id           String        @id @default(uuid()) @map("case_id")
+  patientId    String        @map("patient_id")
   patient      Patient       @relation(fields: [patientId], references: [id])
   status       CaseStatus    @default(Active)
   arrivalTime  DateTime      @default(now()) @map("arrival_time")
@@ -104,38 +108,38 @@ model EmergencyCase {
 
 model Triage {
   id         Int           @id @default(autoincrement()) @map("triage_id")
-  caseId     Int           @unique @map("case_id")
+  caseId     String           @unique @map("case_id")
   case       EmergencyCase @relation(fields: [caseId], references: [id])
   severity   String
   triageTime DateTime      @default(now()) @map("triage_time")
-  nurseId    Int           @map("nurse_id")
+  nurseId    String           @map("nurse_id")
   nurse      Nurse         @relation(fields: [nurseId], references: [id])
 }
 
 model CaseDoctor {
   id       Int           @id @default(autoincrement())
-  caseId   Int           @map("case_id")
+  caseId   String           @map("case_id")
   case     EmergencyCase @relation(fields: [caseId], references: [id])
-  doctorId Int           @map("doctor_id")
+  doctorId String           @map("doctor_id")
   doctor   Doctor        @relation(fields: [doctorId], references: [id])
   role     String        // e.g., Primary, Consultant
 }
 
 model VitalSigns {
   id            Int           @id @default(autoincrement())
-  caseId        Int           @map("case_id")
+  caseId        String           @map("case_id")
   case          EmergencyCase @relation(fields: [caseId], references: [id])
   temperature   Float
   bloodPressure String        @map("blood_pressure")
   heartRate     Int           @map("heart_rate")
-  nurseId       Int           @map("nurse_id")
+  nurseId       String           @map("nurse_id")
   nurse         Nurse         @relation(fields: [nurseId], references: [id])
   timestamp     DateTime      @default(now())
 }
 
 model MedicalRecord {
-  id              Int           @id @default(autoincrement()) @map("record_id")
-  caseId          Int           @unique @map("case_id")
+  id              String   @id @default(uuid())
+  caseId          String           @unique @map("case_id")
   case            EmergencyCase @relation(fields: [caseId], references: [id])
   diagnosis       String
   notes           String?
@@ -145,17 +149,17 @@ model MedicalRecord {
 
 model Medication {
   id        Int           @id @default(autoincrement())
-  caseId    Int           @map("case_id")
+  caseId    String           @map("case_id")
   case      EmergencyCase @relation(fields: [caseId], references: [id])
   name      String
   dosage    String
-  doctorId  Int           @map("doctor_id")
+  doctorId  String           @map("doctor_id")
   doctor    Doctor        @relation(fields: [doctorId], references: [id])
 }
 
 model LabResult {
   id     Int           @id @default(autoincrement())
-  caseId Int           @map("case_id")
+  caseId String           @map("case_id")
   case   EmergencyCase @relation(fields: [caseId], references: [id])
   type   String
   result String
@@ -164,7 +168,7 @@ model LabResult {
 
 model ImagingReport {
   id     Int           @id @default(autoincrement())
-  caseId Int           @map("case_id")
+  caseId String           @map("case_id")
   case   EmergencyCase @relation(fields: [caseId], references: [id])
   type   String
   report String
@@ -173,9 +177,9 @@ model ImagingReport {
 
 model NurseNote {
   id        Int           @id @default(autoincrement())
-  caseId    Int           @map("case_id")
+  caseId    String           @map("case_id")
   case      EmergencyCase @relation(fields: [caseId], references: [id])
-  nurseId   Int           @map("nurse_id")
+  nurseId   String           @map("nurse_id")
   nurse     Nurse         @relation(fields: [nurseId], references: [id])
   note      String
   timestamp DateTime      @default(now())
@@ -183,9 +187,9 @@ model NurseNote {
 
 model Notification {
   id        Int           @id @default(autoincrement())
-  userId    Int           @map("user_id")
+  userId    String           @map("user_id")
   user      User          @relation(fields: [userId], references: [id])
-  caseId    Int?          @map("case_id")
+  caseId    String?          @map("case_id")
   case      EmergencyCase? @relation(fields: [caseId], references: [id])
   message   String
   type      String
@@ -195,7 +199,7 @@ model Notification {
 
 model Billing {
   id     Int           @id @default(autoincrement()) @map("bill_id")
-  caseId Int           @unique @map("case_id")
+  caseId String           @unique @map("case_id")
   case   EmergencyCase @relation(fields: [caseId], references: [id])
   amount Float
   status BillStatus    @default(Pending)
@@ -203,9 +207,9 @@ model Billing {
 
 model Appointment {
   id        Int      @id @default(autoincrement()) @map("appointment_id")
-  patientId Int      @map("patient_id")
+  patientId String      @map("patient_id")
   patient   Patient  @relation(fields: [patientId], references: [id])
-  doctorId  Int      @map("doctor_id")
+  doctorId  String      @map("doctor_id")
   doctor    Doctor   @relation(fields: [doctorId], references: [id])
   date      DateTime
   status    String   @default("Scheduled")

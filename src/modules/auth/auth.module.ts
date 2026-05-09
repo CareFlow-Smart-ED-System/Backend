@@ -15,7 +15,7 @@ import { PasswordService } from '@common/password.service';
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRATION', '15m'),
+          expiresIn: configService.get<string>('JWT_EXPIRATION') as any,
         },
       }),
       inject: [ConfigService],
@@ -23,6 +23,6 @@ import { PasswordService } from '@common/password.service';
   ],
   controllers: [AuthController],
   providers: [AuthService, PasswordService],
-  exports: [AuthService, PasswordService],
+  exports: [AuthService, PasswordService, JwtModule],
 })
 export class AuthModule {}
