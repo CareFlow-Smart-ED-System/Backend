@@ -120,6 +120,38 @@ export class DoctorsService {
 
   }
 
+  async getMedications(caseId: string, page: number = 1, limit: number = 20) {
+    const skip = (page - 1) * limit;
+    const exists = await this.prisma.emergencyCase.findUnique({ where: { id: caseId } });
+    if (!exists) throw new NotFoundException('Case not found');
+
+    const [medications, total] = await Promise.all([
+      this.prisma.medication.findMany({
+        where: { caseId },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.medication.count({ where: { caseId } }),
+    ]);
+
+    return {
+      caseId,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: medications.map((medication) => ({
+        id: medication.id,
+        caseId: medication.caseId,
+        name: medication.name,
+        dosage: medication.dosage,
+        prescribedBy: medication.doctorId,
+        createdAt: medication.createdAt,
+      })),
+    };
+  }
+
   async prescribeMedication(caseId: string, doctorId: number, dto: PrescribeMedicationDto) {
     const exists = await this.prisma.emergencyCase.findUnique({ where: { id: caseId } });
     if (!exists) throw new NotFoundException('Case not found');

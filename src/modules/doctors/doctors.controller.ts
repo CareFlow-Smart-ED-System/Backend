@@ -20,8 +20,7 @@ import { PrescribeMedicationDto } from './dto/prescribe-medication.dto';
 
 @ApiTags('doctors')
 @ApiCookieAuth('accessToken')
-
-@Controller('api/v1/doctors')
+@Controller('api/v1/doctor')
 export class DoctorsController {
   constructor(private doctorsService: DoctorsService) {}
 
@@ -69,6 +68,19 @@ export class DoctorsController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,) {
     return this.doctorsService.getImagingReports(caseId, page, limit);
+  }
+
+  @Get('cases/:caseId/medications')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DOCTOR', 'NURSE')
+  @ApiOperation({ summary: 'Get prescribed medications for a case' })
+  @ApiResponse({ status: 200, description: 'Medication list' })
+  async getMedications(
+    @Param('caseId') caseId: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    return this.doctorsService.getMedications(caseId, page, limit);
   }
 
   @Post('cases/:caseId/medications')
