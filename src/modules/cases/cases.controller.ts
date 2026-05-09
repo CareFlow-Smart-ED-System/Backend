@@ -2,17 +2,34 @@ import {
   Controller,
   Post,
   Get,
-  Put,
+  Patch,
   Body,
   Param,
+  Query,
   UseGuards,
   HttpCode,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiCookieAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+  ApiParam,
+} from '@nestjs/swagger';
 import { CasesService } from './cases.service';
 import { Roles } from '@common/decorators/roles.decorator';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
+import { CurrentUser } from '@common/decorators/current-user.decorator';
+import { CreateCaseDto } from './dto/create-case.dto';
+import { UpdateCaseStatusDto } from './dto/update-case-status.dto';
+import { AssignDoctorDto } from './dto/assign-doctor.dto';
+import { ListCasesQueryDto } from './dto/list-cases.query';
+import { CaseStatus } from '@prisma/client';
 
 @ApiTags('cases')
 @ApiCookieAuth('accessToken')
@@ -22,62 +39,96 @@ export class CasesController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('RECEPTIONIST', 'ADMIN')
+  @Roles('NURSE', 'RECEPTIONIST')
   @HttpCode(201)
   @ApiOperation({ summary: 'Create a new emergency case' })
+  @ApiBody({ type: CreateCaseDto })
   @ApiResponse({ status: 201, description: 'Case created successfully' })
-  async createCase() {
-    // TODO: Implement create case
+  async createCase(@Body() dto: CreateCaseDto) {
+    return this.casesService.createCase(dto);
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'List cases' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DOCTOR', 'NURSE', 'ADMIN')
+  @ApiOperation({ summary: 'Get active cases' })
+  @ApiQuery({ name: 'status', required: false, enum: CaseStatus })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiResponse({ status: 200, description: 'Cases list' })
-  async listCases() {
-    // TODO: Implement list cases
+  async listCases(
+    @CurrentUser() user: any,
+    @Query() query: ListCasesQueryDto,
+  ) {
+    return this.casesService.getCases(
+      user,
+      query.status,
+      Number(query.page ?? 1),
+      Number(query.limit ?? 20),
+    );
   }
 
   @Get(':caseId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DOCTOR', 'NURSE', 'ADMIN')
   @ApiOperation({ summary: 'Get case details' })
+  @ApiParam({ name: 'caseId', type: 'string' })
   @ApiResponse({ status: 200, description: 'Case details' })
-  async getCaseDetails(@Param('caseId') caseId: string) {
-    // TODO: Implement get case details
+  async getCaseDetails(@Param('caseId') caseId: string, @CurrentUser() user: any) {
+    return this.casesService.getCaseById(caseId, user);
   }
 
   @Get(':caseId/timeline')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get case timeline' })
-  @ApiResponse({ status: 200, description: 'Case timeline' })
-  async getCaseTimeline(@Param('caseId') caseId: string) {
-    // TODO: Implement get case timeline
-  }
-
-  @Put(':caseId/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('DOCTOR', 'NURSE', 'ADMIN')
-  @ApiOperation({ summary: 'Update case status' })
-  @ApiResponse({ status: 200, description: 'Case status updated successfully' })
-  async updateCaseStatus(@Param('caseId') caseId: string) {
-    // TODO: Implement update case status
+  @ApiOperation({ summary: 'Get case timeline' })
+  @ApiParam({ name: 'caseId', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Case timeline' })
+  async getCaseTimeline(@Param('caseId') caseId: string) {
+    return this.casesService.getCaseTimeline(caseId);
   }
 
-  @Post(':caseId/discharge-summary')
+  @Patch(':caseId/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DOCTOR', 'NURSE')
+  @ApiOperation({ summary: 'Update case status' })
+  @ApiParam({ name: 'caseId', type: 'string' })
+  @ApiBody({ type: UpdateCaseStatusDto })
+  @ApiResponse({ status: 200, description: 'Case status updated successfully' })
+  async updateCaseStatus(
+    @Param('caseId') caseId: string,
+    @Body() dto: UpdateCaseStatusDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.casesService.updateCaseStatus(caseId, dto, user);
+  }
+
+  @Get(':caseId/summary')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('DOCTOR', 'ADMIN')
-  @ApiOperation({ summary: 'Create a discharge summary' })
-  @ApiResponse({ status: 201, description: 'Discharge summary created successfully' })
-  async createDischargeSummary(@Param('caseId') caseId: string) {
-    // TODO: Implement create discharge summary
+  @ApiOperation({ summary: 'Get discharge summary' })
+  @ApiParam({ name: 'caseId', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Discharge summary' })
+  async getDischargeSummary(
+    @Param('caseId') caseId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.casesService.getDischargeSummary(caseId, user);
   }
 
-  @Post(':caseId/assign-doctor')
+  @Post(':caseId/doctors')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'RECEPTIONIST')
+  @Roles('ADMIN', 'DOCTOR')
+  @HttpCode(201)
   @ApiOperation({ summary: 'Assign a doctor to a case' })
-  @ApiResponse({ status: 200, description: 'Doctor assigned successfully' })
-  async assignDoctor(@Param('caseId') caseId: string) {
-    // TODO: Implement assign doctor
+  @ApiParam({ name: 'caseId', type: 'string' })
+  @ApiBody({ type: AssignDoctorDto })
+  @ApiResponse({ status: 201, description: 'Doctor assigned successfully' })
+  async assignDoctor(
+    @Param('caseId') caseId: string,
+    @Body() dto: AssignDoctorDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.casesService.assignDoctor(caseId, dto, user);
   }
 }

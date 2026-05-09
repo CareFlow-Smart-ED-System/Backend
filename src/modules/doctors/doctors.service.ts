@@ -59,15 +59,18 @@ export class DoctorsService {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
-      data: assignments.map((a) => ({
-        caseId: a.case.id,
-        patientName: a.case.patient.user.displayName,
-        patientId: a.case.patientId,
-        severity: a.case.triage?.severity ?? null,
-        priorityScore: severityScore(a.case.triage?.severity),
-        status: a.case.status,
-        arrivalTime: a.case.arrivalTime,
-      })),
+      data: assignments.map((a) => {
+        const triage = Array.isArray(a.case.triage) ? a.case.triage[0] : a.case.triage;
+        return {
+          caseId: a.case.id,
+          patientName: a.case.patient.user.displayName,
+          patientId: a.case.patientId,
+          severity: triage?.severity ?? null,
+          priorityScore: severityScore(triage?.severity),
+          status: a.case.status,
+          arrivalTime: a.case.arrivalTime,
+        };
+      }),
     };
   }
 
