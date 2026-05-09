@@ -26,17 +26,80 @@ export class NotificationsGateway
     console.log(`Client disconnected: ${client.id}`);
   }
 
-  @SubscribeMessage('message')
-  handleMessage(client: Socket, data: any): void {
-    // TODO: Implement message handling
+  @SubscribeMessage('join_user_room')
+  handleJoinUserRoom(client: Socket, payload: { userId: string }): void {
+    if (!payload?.userId) {
+      return;
+    }
+
+    client.join(`user_${payload.userId}`);
   }
 
-  // Room-based notifications
+  @SubscribeMessage('join_clinical_floor')
+  handleJoinClinicalFloor(client: Socket): void {
+    client.join('clinical_floor');
+  }
+
   notifyUser(userId: string, notification: any) {
     this.server.to(`user_${userId}`).emit('notification', notification);
   }
 
   notifyClinicalFloor(notification: any) {
     this.server.to('clinical_floor').emit('notification', notification);
+  }
+
+  notifyQueueUpdated(caseId: string) {
+    this.server.to('clinical_floor').emit('queue.updated', {
+      caseId,
+      action: 'REFETCH_QUEUE',
+    });
+  }
+
+  notifyDoctorAssigned(userId: string, notification: any) {
+    this.server.to(`user_${userId}`).emit('notification.doctor_assigned', {
+      ...notification,
+      type: 'DOCTOR_ASSIGNED',
+    });
+  }
+
+  notifyCriticalAlert(notification: any) {
+    this.server.to('clinical_floor').emit('notification.critical_triage', {
+      ...notification,
+      type: 'CRITICAL_ALERT',
+    });
+  }
+
+  notifyVitalsAbnormal(userIds: string[], notification: any) {
+    userIds.forEach((userId) => {
+      this.server.to(`user_${userId}`).emit('notification.vitals_abnormal', {
+        ...notification,
+        type: 'VITALS_ABNORMAL',
+      });
+    });
+  }
+
+  notifyNewPrescription(notification: any) {
+    this.server.to('clinical_floor').emit('notification.new_prescription', {
+      ...notification,
+      type: 'NEW_PRESCRIPTION',
+    });
+  }
+
+  notifyLabReady(userIds: string[], notification: any) {
+    userIds.forEach((userId) => {
+      this.server.to(`user_${userId}`).emit('notification.lab_ready', {
+        ...notification,
+        type: 'LAB_RESULT',
+      });
+    });
+  }
+
+  notifyImagingReady(userIds: string[], notification: any) {
+    userIds.forEach((userId) => {
+      this.server.to(`user_${userId}`).emit('notification.imaging_ready', {
+        ...notification,
+        type: 'IMAGING_READY',
+      });
+    });
   }
 }

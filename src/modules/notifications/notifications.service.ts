@@ -1,14 +1,31 @@
 import { PrismaService } from '@/prisma/prisma.service';
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { NotificationType } from '@prisma/client';
+import { NotificationsGateway } from './notifications.gateway';
+
+type CreateNotificationInput = {
+  userId: string;
+  caseId?: string | null;
+  message: string;
+  type: NotificationType;
+  isRead?: boolean;
+  readAt?: Date | null;
+};
+
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsGateway: NotificationsGateway,
+  ) {}
 
-  async getNotifications(userId: string,
+  async getNotifications(
+    userId: string,
     page: number = 1,
     limit: number = 20,
-    isRead?: boolean,) {
-     const skip = (page - 1) * limit;
+    isRead?: boolean,
+  ) {
+    const skip = (page - 1) * limit;
     const where: any = { userId };
     if (isRead !== undefined) where.isRead = isRead;
     const [notifications, total, unread] = await Promise.all([
@@ -33,42 +50,106 @@ export class NotificationsService {
         message: n.message,
         type: n.type,
         isRead: n.isRead,
+        readAt: n.readAt,
         createdAt: n.createdAt,
       })),
-    }; 
+    };
   }
 
-async markAsRead(notificationId: string, userId: string) {
-  const notification = await this.prisma.notification.findUnique({
-    where: { id: notificationId },
-  });
-  if (!notification) throw new NotFoundException('Notification not found');
-  await this.prisma.notification.update({
-    where: { id: notificationId },
-    data: { isRead: true },
-  });
-  return {
-    message: 'Notification marked as read',
-    notificationId,
-  };
-}
-
-async markAllAsRead(userId: string) {
-  const result = await this.prisma.notification.updateMany({
-    where: { userId, isRead: false },
-    data: { isRead: true },
-  });
-  return {
-    message: 'All notifications marked as read',
-    updatedCount: result.count,
-  };
-}
-
-  async markAsUnread() {
-    // TODO: Implement mark as unread logic
+  async markAsRead(notificationId: string, userId: string) {
+    const notification = await this.prisma.notification.findFirst({
+      where: { id: notificationId, userId },
+    });
+    if (!notification) throw new NotFoundException('Notification not found');
+    await this.prisma.notification.update({
+      where: { id: notificationId },
+      data: { isRead: true, readAt: new Date() },
+    });
+    return {
+      message: 'Notification marked as read',
+      notificationId,
+    };
   }
 
-  async createNotification() {
-    // TODO: Implement create notification logic
+  async markAllAsRead(userId: string) {
+    const result = await this.prisma.notification.updateMany({
+      where: { userId, isRead: false },
+      data: { isRead: true, readAt: new Date() },
+    });
+    return {
+      message: 'All notifications marked as read',
+      updatedCount: result.count,
+    };
+  }
+
+  async createNotification(input: CreateNotificationInput) {
+    const notification = await this.prisma.notification.create({
+      data: {
+        userId: input.userId,
+        caseId: input.caseId ?? null,
+        message: input.message,
+        type: input.type,
+        isRead: input.isRead ?? false,
+        readAt: input.readAt ?? null,
+      },
+    });
+
+    this.notificationsGateway.notifyUser(input.userId, {
+      notificationId: notification.id,
+      caseId: notification.caseId,
+      message: notification.message,
+      type: notification.type,
+      isRead: notification.isRead,
+      createdAt: notification.createdAt,
+    });
+
+    return notification;
+  }
+
+  async createUserNotification(input: {
+    userId: string;
+    caseId?: string | null;
+    message: string;
+    type: NotificationType;
+  }) {
+    return this.createNotification(input);
+  }
+
+  async notifyQueueUpdated(caseId: string) {
+    this.notificationsGateway.notifyQueueUpdated(caseId);
+  }
+
+  async notifyDoctorAssigned(userId: string, payload: any) {
+    this.notificationsGateway.notifyDoctorAssigned(userId, payload);
+  }
+
+  async notifyCriticalAlert(payload: any) {
+    this.notificationsGateway.notifyCriticalAlert(payload);
+  }
+
+  async notifyVitalsAbnormal(userIds: string[], payload: any) {
+    this.notificationsGateway.notifyVitalsAbnormal(userIds, payload);
+  }
+
+  async notifyNewPrescription(payload: any) {
+    this.notificationsGateway.notifyNewPrescription(payload);
+  }
+
+  async notifyLabReady(userIds: string[], payload: any) {
+    this.notificationsGateway.notifyLabReady(userIds, payload);
+  }
+
+  async notifyImagingReady(userIds: string[], payload: any) {
+    // create DB notification records for each user and emit via gateway
+    for (const userId of userIds) {
+      await this.createNotification({
+        userId,
+        caseId: payload.caseId,
+        message: payload.message,
+        type: NotificationType.IMAGING_READY,
+      });
+    }
+
+    this.notificationsGateway.notifyImagingReady(userIds, payload);
   }
 }

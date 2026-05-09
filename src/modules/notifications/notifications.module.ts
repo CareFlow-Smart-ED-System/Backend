@@ -7,7 +7,7 @@ import { NotificationsGateway } from './notifications.gateway';
 import { PrismaModule } from '@/prisma/prisma.module';
 
 @Module({
-  imports: [PrismaModule,PassportModule,
+  imports: [PrismaModule, PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '24h' },
