@@ -91,8 +91,22 @@ export class NursesService {
   }
   
 
-  async createClinicalNote() {
-    // TODO: Implement create clinical note logic
+  async createClinicalNote(caseId: string, nurseId: string, dto: CreateNoteDto) {
+    const exists = await this.prisma.emergencyCase.findUnique({ where: { id: caseId } });
+    if (!exists) throw new NotFoundException('Case not found');
+    const note = await this.prisma.nurseNote.create({
+      data: { caseId, nurseId, note: dto.note },
+    });
+    return {
+      message: 'Note added successfully',
+      data: {
+        id: note.id,
+        caseId: note.caseId,
+        nurseId: note.nurseId,
+        note: note.note,
+        timestamp: note.timestamp,
+      },
+    };
   }
 
   async getClinicalNotes() {

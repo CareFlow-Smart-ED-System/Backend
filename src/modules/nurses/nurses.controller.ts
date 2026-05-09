@@ -65,8 +65,8 @@ export class NursesController {
   @HttpCode(201)
   @ApiOperation({ summary: 'Create a clinical note for a case' })
   @ApiResponse({ status: 201, description: 'Clinical note created successfully' })
-  async createClinicalNote(@Param('caseId') caseId: string) {
-    // TODO: Implement create clinical note
+  async createClinicalNote(@Param('caseId') caseId: string, @Body() dto: CreateNoteDto, @CurrentUser() user: any) {
+    return this.nursesService.createClinicalNote(caseId, user.nurseId, dto);
   }
 
   @Get('notes/:caseId')
