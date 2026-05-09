@@ -1,15 +1,11 @@
-import {
+﻿import {
   IsString,
   IsDateString,
   IsEnum,
   IsPhoneNumber,
 } from 'class-validator';
 
-export enum Gender {
-  MALE = 'MALE',
-  FEMALE = 'FEMALE',
-  OTHER = 'OTHER',
-}
+import { Gender } from '@prisma/client';
 
 export class QuickRegisterDto {
   @IsString()

@@ -1,29 +1,21 @@
-import {
-  IsString,
-  IsDateString,
-  IsEnum,
-  IsPhoneNumber,
-} from 'class-validator';
-
- enum Gender {
-  MALE = 'MALE',
-  FEMALE = 'FEMALE',
-  OTHER = 'OTHER',
-}
+﻿// update-patient.dto.ts
+import { IsOptional, IsString, IsDateString, IsEnum } from 'class-validator';
+import { Gender } from '@prisma/client';
 
 export class UpdatePatientDto {
+  @IsOptional()
   @IsString()
-  firstName: string;
+  displayName?: string;
 
-  @IsString()
-  lastName: string;
-
+  @IsOptional()
   @IsDateString()
-  dateOfBirth: string;
+  dateOfBirth?: string;
 
+  @IsOptional()
   @IsEnum(Gender)
-  gender: Gender;
+  gender?: Gender;
 
-  @IsPhoneNumber()
-  phone: string;
+  @IsOptional()
+  @IsString()
+  phone?: string;
 }
