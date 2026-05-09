@@ -85,7 +85,7 @@ enum AuditActionType {
 // ============================================
 
 model User {
-  id                  String   @id @default(cuid())
+  id                  String   @id @default(uuid())
   email               String   @unique
   passwordHash        String
   displayName         String
@@ -93,6 +93,8 @@ model User {
   gender              Gender?
   role                UserRole
   mustChangePassword  Boolean  @default(false)
+  failedLoginAttempts Int      @default(0)
+  lockedUntil         DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -109,7 +111,7 @@ model User {
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   token     String   @unique
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -126,7 +128,7 @@ model RefreshToken {
 // ============================================
 
 model Patient {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   phone     String?
@@ -145,7 +147,7 @@ model Patient {
 // ============================================
 
 model Doctor {
-  id              String   @id @default(cuid())
+  id              String   @id @default(uuid())
   userId          String   @unique
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   specialization  String
@@ -166,7 +168,7 @@ model Doctor {
 // ============================================
 
 model Nurse {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   department String?
@@ -186,7 +188,7 @@ model Nurse {
 // ============================================
 
 model EmergencyCase {
-  id            String   @id @default(cuid())
+  id            String   @id @default(uuid())
   patientId     String
   patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   status        CaseStatus @default(WAITING)
@@ -217,7 +219,7 @@ model EmergencyCase {
 // ============================================
 
 model Triage {
-  id                  String   @id @default(cuid())
+  id                  String   @id @default(uuid())
   caseId              String   @unique
   case                EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   severity            TriageSeverity
@@ -243,7 +245,7 @@ model Triage {
 // ============================================
 
 model CaseDoctor {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   caseId    String
   case      EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   doctorId  String
@@ -261,7 +263,7 @@ model CaseDoctor {
 // ============================================
 
 model VitalSigns {
-  id                String   @id @default(cuid())
+  id                String   @id @default(uuid())
   caseId            String
   case              EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   temperature       Float?
@@ -284,7 +286,7 @@ model VitalSigns {
 // ============================================
 
 model MedicalRecord {
-  id                String   @id @default(cuid())
+  id                String   @id @default(uuid())
   caseId            String   @unique
   case              EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   diagnosis         String?
@@ -302,7 +304,7 @@ model MedicalRecord {
 // ============================================
 
 model Medication {
-  id              String   @id @default(cuid())
+  id              String   @id @default(uuid())
   caseId          String
   case            EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   name            String
@@ -321,7 +323,7 @@ model Medication {
 // ============================================
 
 model MedicationAdministration {
-  id            String   @id @default(cuid())
+  id            String   @id @default(uuid())
   medicationId  String
   medication    Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
   administeredAt DateTime @default(now())
@@ -334,7 +336,7 @@ model MedicationAdministration {
 // ============================================
 
 model LabResult {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   caseId    String
   case      EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   type      String
@@ -352,7 +354,7 @@ model LabResult {
 // ============================================
 
 model ImagingReport {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   caseId    String
   case      EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   type      String
@@ -371,7 +373,7 @@ model ImagingReport {
 // ============================================
 
 model NurseNote {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   caseId    String
   case      EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   nurseId   String
@@ -389,7 +391,7 @@ model NurseNote {
 // ============================================
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   caseId    String?
@@ -411,7 +413,7 @@ model Notification {
 // ============================================
 
 model Billing {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   caseId    String   @unique
   case      EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   amount    Float
@@ -428,7 +430,7 @@ model Billing {
 // ============================================
 
 model Appointment {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   patientId String
   patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctorId  String
@@ -449,7 +451,7 @@ model Appointment {
 // ============================================
 
 model TimelineEvent {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   caseId      String
   case        EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   type        String   // TRIAGE, VITAL_SIGNS, MEDICATION, NOTE, STATUS_CHANGE
@@ -466,7 +468,7 @@ model TimelineEvent {
 // ============================================
 
 model AuditLog {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   actionType  AuditActionType
   userId      String
   user        User     @relation(fields: [userId], references: [id])
@@ -478,3 +480,5 @@ model AuditLog {
   @@index([actionType])
   @@index([timestamp])
 }
+
+

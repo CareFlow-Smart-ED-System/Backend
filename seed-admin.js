@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const argon2 = require('argon2');
+const { randomUUID } = require('crypto');
 
 const prisma = new PrismaClient();
 
@@ -11,7 +12,7 @@ async function main() {
       where: { email: 'admin@careflow.com' },
       update: {},
       create: {
-        id: 'admin-001',
+        id: randomUUID(),
         email: 'admin@careflow.com',
         displayName: 'Admin User',
         passwordHash: passwordHash,

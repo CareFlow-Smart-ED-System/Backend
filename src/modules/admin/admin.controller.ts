@@ -12,7 +12,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiBody,
   ApiParam,
 } from '@nestjs/swagger';
@@ -23,7 +23,7 @@ import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
 
 @ApiTags('admin')
-@ApiBearerAuth('JWT-auth')
+@ApiCookieAuth('accessToken')
 @Controller('api/v1/admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
@@ -123,6 +123,7 @@ export class AdminController {
             displayName: { type: 'string' },
             email: { type: 'string' },
             role: { type: 'string', enum: ['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'] },
+            mustChangePassword: { type: 'boolean' },
             specialization: { type: 'string', nullable: true },
             department: { type: 'string', nullable: true },
           },
@@ -152,7 +153,7 @@ export class AdminController {
       example1: {
         summary: 'Reset password request',
         value: {
-          newPassword: 'NewPassword123!',
+          newTemporaryPassword: 'TempPass123!',
         },
       },
     },
@@ -168,6 +169,7 @@ export class AdminController {
           type: 'object',
           properties: {
             message: { type: 'string', example: 'Password reset successfully' },
+            mustChangePassword: { type: 'boolean', example: true },
           },
         },
       },
