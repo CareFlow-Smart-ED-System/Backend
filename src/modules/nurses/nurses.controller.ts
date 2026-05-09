@@ -55,8 +55,8 @@ export class NursesController {
   @HttpCode(201)
   @ApiOperation({ summary: 'Mark a medication as administered' })
   @ApiResponse({ status: 201, description: 'Medication administered successfully' })
-  async administerMedication(@Param('medicationId') medicationId: string) {
-    // TODO: Implement administer medication
+  async administerMedication(@Param('medicationId') medicationId: string, @Body() dto: AdministerMedicationDto,@CurrentUser() user: any,) {
+    return this.nursesService.administerMedication(dto.medicationId ?? medicationId, user.nurseId, dto);
   }
 
   @Post('notes/:caseId')

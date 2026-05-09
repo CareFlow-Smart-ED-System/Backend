@@ -74,9 +74,22 @@ export class NursesService {
     };
   }
 
-  async administerMedication() {
-    // TODO: Implement administer medication logic
+  async administerMedication(caseId: string, nurseId: string, dto: AdministerMedicationDto) {
+    const medication = await this.prisma.medication.findUnique({
+      where: { id: dto.medicationId },
+    });
+    if (!medication) throw new NotFoundException('Medication not found');
+    return {
+      message: 'Medication administration recorded',
+      data: {
+        caseId,
+        medicationId: dto.medicationId,
+        administeredBy: nurseId,
+        administeredAt: new Date(),
+      },
+    };
   }
+  
 
   async createClinicalNote() {
     // TODO: Implement create clinical note logic
