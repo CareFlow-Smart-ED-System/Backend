@@ -44,8 +44,9 @@ export class NursesController {
   @Roles('NURSE', 'DOCTOR', 'ADMIN')
   @ApiOperation({ summary: 'Get vital signs for a case' })
   @ApiResponse({ status: 200, description: 'Vital signs list' })
-  async getVitalSigns(@Param('caseId') caseId: string) {
-    // TODO: Implement get vital signs
+  async getVitalSigns(@Param('caseId') caseId: string,@Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,) {
+    return this.nursesService.getVitalSigns(caseId, page, limit);
   }
 
   @Post('medications/:medicationId/administer')

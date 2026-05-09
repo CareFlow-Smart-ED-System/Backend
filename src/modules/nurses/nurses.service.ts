@@ -41,8 +41,37 @@ export class NursesService {
     };
   }
 
-  async getVitalSigns() {
-    // TODO: Implement get vital signs logic
+  async getVitalSigns(caseId: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+    const exists = await this.prisma.emergencyCase.findUnique({ where: { id: caseId } });
+    if (!exists) throw new NotFoundException('Case not found');
+    const [records, total] = await Promise.all([
+      this.prisma.vitalSigns.findMany({
+        where: { caseId },
+        skip,
+        take: limit,
+        orderBy: { timestamp: 'desc' },
+      }),
+      this.prisma.vitalSigns.count({ where: { caseId } }),
+    ]);
+    return {
+      caseId,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: records.map((r) => ({       // ← here, inside the return
+        id: r.id,
+        temperature: r.temperature,
+        systolic: r.systolic,
+        diastolic: r.diastolic,
+        heartRate: r.heartRate,
+        oxygenSaturation: r.oxygenSaturation,
+        respiratoryRate: r.respiratoryRate,
+        nurseId: r.nurseId,
+        timestamp: r.timestamp,
+      })),
+    };
   }
 
   async administerMedication() {
