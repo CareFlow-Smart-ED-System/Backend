@@ -9,6 +9,7 @@ import { NursesModule } from '@modules/nurses/nurses.module';
 import { DoctorsModule } from '@modules/doctors/doctors.module';
 import { QueueModule } from '@modules/queue/queue.module';
 import { PatientsModule } from '@modules/patients/patients.module';
+import { TriageModule } from '@modules/triage/triage.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 
 @Module({
@@ -22,6 +23,7 @@ import { NotificationsModule } from '@modules/notifications/notifications.module
     AdminModule,
     NursesModule,
     DoctorsModule,
+    TriageModule,
     QueueModule,
     PatientsModule,
     NotificationsModule,

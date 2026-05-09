@@ -1,46 +1,52 @@
 import {
+  Body,
   Controller,
-  Post,
   Get,
   Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Request,
   UseGuards,
-  HttpCode,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TriageService } from './triage.service';
+import { CreateTriageDto } from './dto/create-triage.dto';
 import { Roles } from '@common/decorators/roles.decorator';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
+import { UserRole } from '@prisma/client';
 
-@ApiTags('triage')
-@ApiCookieAuth('accessToken')
-@Controller('api/v1/triage')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('api/v1/cases/:caseId/triage')
 export class TriageController {
-  constructor(private triageService: TriageService) {}
+  constructor(private readonly triageService: TriageService) {}
 
-  @Post(':caseId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('NURSE', 'ADMIN')
-  @HttpCode(201)
-  @ApiOperation({ summary: 'Create a triage assessment' })
-  @ApiResponse({ status: 201, description: 'Triage created successfully' })
-  async createTriage(@Param('caseId') caseId: string) {
-    // TODO: Implement create triage (immutable)
+  // POST /api/v1/cases/:caseId/triage — Nurse only
+  @Post()
+  @Roles(UserRole.NURSE)
+  createTriage(
+    @Param('caseId', ParseUUIDPipe) caseId: string,
+    @Body() dto: CreateTriageDto,
+    @Request() req,
+  ) {
+    return this.triageService.createTriage(caseId, dto, req.user);
   }
 
-  @Get(':caseId/latest')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get the latest triage assessment' })
-  @ApiResponse({ status: 200, description: 'Latest triage assessment' })
-  async getLatestTriage(@Param('caseId') caseId: string) {
-    // TODO: Implement get latest triage
+  // GET /api/v1/cases/:caseId/triage — Doctor, Nurse, Admin
+  @Get()
+  @Roles(UserRole.DOCTOR, UserRole.NURSE, UserRole.ADMIN)
+  getLatestTriage(@Param('caseId', ParseUUIDPipe) caseId: string) {
+    return this.triageService.getLatestTriage(caseId);
   }
 
-  @Get(':caseId/history')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get triage history' })
-  @ApiResponse({ status: 200, description: 'Triage history' })
-  async getTriageHistory(@Param('caseId') caseId: string) {
-    // TODO: Implement get triage history
+  // GET /api/v1/cases/:caseId/triage/history — Doctor, Nurse, Admin
+  @Get('history')
+  @Roles(UserRole.DOCTOR, UserRole.NURSE, UserRole.ADMIN)
+  getHistory(
+    @Param('caseId', ParseUUIDPipe) caseId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    return this.triageService.getTriageHistory(caseId, Number(page), Number(limit));
   }
 }
