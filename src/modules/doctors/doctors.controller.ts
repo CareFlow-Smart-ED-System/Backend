@@ -90,7 +90,7 @@ export class DoctorsController {
   @ApiOperation({ summary: 'Prescribe medication for a case' })
   @ApiResponse({ status: 201, description: 'Medication prescribed successfully' })
   async prescribeMedication(@Param('caseId') caseId: string,
-    @Body() dto: PrescribeMedicationDto,      // ← was missing
+    @Body() dto: PrescribeMedicationDto,      
     @CurrentUser() user: any,) {
     return this.doctorsService.prescribeMedication(caseId, user.doctorId, dto);
   }
