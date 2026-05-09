@@ -1,4 +1,11 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { 
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  DefaultValuePipe,
+  ParseIntPipe,
+ } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { QueueService } from './queue.service';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
@@ -13,8 +20,9 @@ export class QueueController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get the priority queue' })
   @ApiResponse({ status: 200, description: 'Priority queue' })
-  async getPriorityQueue() {
-    // TODO: Implement get priority queue
+  async getPriorityQueue( @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,) {
+    return this.queueService.getPriorityQueue(page, limit);
   }
 
   @Get('statistics')
@@ -22,6 +30,6 @@ export class QueueController {
   @ApiOperation({ summary: 'Get queue statistics' })
   @ApiResponse({ status: 200, description: 'Queue statistics' })
   async getQueueStatistics() {
-    // TODO: Implement get queue statistics
+  return this.queueService.getQueueStatistics();
   }
 }

@@ -9,7 +9,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ============================================
@@ -131,6 +130,8 @@ model Patient {
   id        String   @id @default(uuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName String   @default("Unknown")
+  lastName  String   @default("Unknown")
   phone     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -480,5 +481,6 @@ model AuditLog {
   @@index([actionType])
   @@index([timestamp])
 }
+
 
 

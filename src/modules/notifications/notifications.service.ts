@@ -19,6 +19,24 @@ export class NotificationsService {
     private notificationsGateway: NotificationsGateway,
   ) {}
 
+  private async createNotificationsForUsers(
+    userIds: string[],
+    input: Omit<CreateNotificationInput, 'userId'>,
+  ) {
+    return Promise.all(
+      userIds.map((userId) =>
+        this.createNotification({
+          userId,
+          caseId: input.caseId,
+          message: input.message,
+          type: input.type,
+          isRead: input.isRead,
+          readAt: input.readAt,
+        }),
+      ),
+    );
+  }
+
   async getNotifications(
     userId: string,
     page: number = 1,
@@ -120,6 +138,13 @@ export class NotificationsService {
   }
 
   async notifyDoctorAssigned(userId: string, payload: any) {
+    await this.createNotification({
+      userId,
+      caseId: payload.caseId ?? null,
+      message: payload.message,
+      type: NotificationType.DOCTOR_ASSIGNED,
+    });
+
     this.notificationsGateway.notifyDoctorAssigned(userId, payload);
   }
 
@@ -128,6 +153,12 @@ export class NotificationsService {
   }
 
   async notifyVitalsAbnormal(userIds: string[], payload: any) {
+    await this.createNotificationsForUsers(userIds, {
+      caseId: payload.caseId ?? null,
+      message: payload.message,
+      type: NotificationType.VITALS_ABNORMAL,
+    });
+
     this.notificationsGateway.notifyVitalsAbnormal(userIds, payload);
   }
 
@@ -136,19 +167,22 @@ export class NotificationsService {
   }
 
   async notifyLabReady(userIds: string[], payload: any) {
+    await this.createNotificationsForUsers(userIds, {
+      caseId: payload.caseId ?? null,
+      message: payload.message,
+      type: NotificationType.LAB_RESULT,
+    });
+
     this.notificationsGateway.notifyLabReady(userIds, payload);
   }
 
   async notifyImagingReady(userIds: string[], payload: any) {
     // create DB notification records for each user and emit via gateway
-    for (const userId of userIds) {
-      await this.createNotification({
-        userId,
-        caseId: payload.caseId,
-        message: payload.message,
-        type: NotificationType.IMAGING_READY,
-      });
-    }
+    await this.createNotificationsForUsers(userIds, {
+      caseId: payload.caseId ?? null,
+      message: payload.message,
+      type: NotificationType.IMAGING_READY,
+    });
 
     this.notificationsGateway.notifyImagingReady(userIds, payload);
   }
