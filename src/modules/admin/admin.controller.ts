@@ -2,16 +2,28 @@ import {
   Controller,
   Get,
   Post,
-  Put,
+  Patch,
   Param,
+  Body,
   UseGuards,
   HttpCode,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiParam,
+} from '@nestjs/swagger';
 import { AdminService } from './admin.service';
+import { CreateStaffUserDto, ResetPasswordDto } from './dto/create-staff-user.dto';
 import { Roles } from '@common/decorators/roles.decorator';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
 
+@ApiTags('admin')
+@ApiBearerAuth('JWT-auth')
 @Controller('api/v1/admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
@@ -19,23 +31,186 @@ export class AdminController {
   constructor(private adminService: AdminService) {}
 
   @Get('users')
+  @ApiOperation({ summary: 'List all users (ADMIN only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of all users',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              displayName: { type: 'string' },
+              email: { type: 'string' },
+              role: { type: 'string' },
+              createdAt: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   async listUsers() {
-    // TODO: Implement list users
+    return this.adminService.listUsers();
   }
 
-  @Post('users/staff')
+  @Post('users')
   @HttpCode(201)
-  async createStaffUser() {
-    // TODO: Implement create staff user
+  @ApiOperation({
+    summary: 'Create a new staff user account',
+    description:
+      'Creates a new staff user account with the specified role. Only ADMIN users can create staff accounts after logging in once and reusing the stored access token.',
+  })
+  @ApiBody({
+    type: CreateStaffUserDto,
+    examples: {
+      doctor: {
+        summary: 'Create a Doctor',
+        value: {
+          displayName: 'Dr. Sara Ahmed',
+          email: 'sara.ahmed@careflow.com',
+          password: 'SecurePass123!',
+          dateOfBirth: '2000-01-15',
+          gender: 'FEMALE',
+          role: 'DOCTOR',
+          specialization: 'Cardiology',
+        },
+      },
+      nurse: {
+        summary: 'Create a Nurse',
+        value: {
+          displayName: 'Jane Smith',
+          email: 'jane.smith@careflow.com',
+          password: 'SecurePass123!',
+          dateOfBirth: '1995-05-20',
+          gender: 'FEMALE',
+          role: 'NURSE',
+          department: 'Emergency',
+        },
+      },
+      receptionist: {
+        summary: 'Create a Receptionist',
+        value: {
+          displayName: 'John Doe',
+          email: 'john.doe@careflow.com',
+          password: 'SecurePass123!',
+          dateOfBirth: '1990-03-10',
+          gender: 'MALE',
+          role: 'RECEPTIONIST',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Staff user created successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        data: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', example: 'Staff registered successfully' },
+            userId: { type: 'string' },
+            displayName: { type: 'string' },
+            email: { type: 'string' },
+            role: { type: 'string', enum: ['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'] },
+            specialization: { type: 'string', nullable: true },
+            department: { type: 'string', nullable: true },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request - Missing required fields or invalid role' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
+  @ApiResponse({ status: 409, description: 'Conflict - Email already exists' })
+  async createStaffUser(@Body() createStaffUserDto: CreateStaffUserDto) {
+    return this.adminService.createStaffUser(createStaffUserDto);
   }
 
-  @Put('users/:userId')
-  async updateUser(@Param('userId') userId: string) {
-    // TODO: Implement update user
+  @Patch('users/:userId/reset-password')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Reset user password (ADMIN only)' })
+  @ApiParam({
+    name: 'userId',
+    type: 'string',
+    description: 'The user ID',
+  })
+  @ApiBody({
+    type: ResetPasswordDto,
+    examples: {
+      example1: {
+        summary: 'Reset password request',
+        value: {
+          newPassword: 'NewPassword123!',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        data: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', example: 'Password reset successfully' },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async resetPassword(
+    @Param('userId') userId: string,
+    @Body() resetPasswordDto: ResetPasswordDto,
+  ) {
+    return this.adminService.resetPassword(userId, resetPasswordDto);
   }
 
   @Get('audit-logs')
+  @ApiOperation({ summary: 'Get audit logs (ADMIN only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Audit logs',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              action: { type: 'string' },
+              userId: { type: 'string' },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   async getAuditLogs() {
-    // TODO: Implement get audit logs
+    return this.adminService.getAuditLogs();
   }
 }
