@@ -3,7 +3,6 @@ import {
   BadRequestException,
   UnauthorizedException,
   NotFoundException,
-  ConflictException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -13,6 +12,9 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { LoginResponseDto, TokenResponseDto } from './dto/auth-response.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { ConfigService } from '@nestjs/config';
+
+const LOGIN_LOCKOUT_THRESHOLD = 5;
+const LOGIN_LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -35,6 +37,20 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedException('Account is temporarily locked. Please try again later.');
+    }
+
+    if (user.lockedUntil && user.lockedUntil <= new Date()) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          lockedUntil: null,
+          failedLoginAttempts: 0,
+        },
+      });
+    }
+
     // Verify password
     const isPasswordValid = await this.passwordService.verifyPassword(
       user.passwordHash,
@@ -42,38 +58,57 @@ export class AuthService {
     );
 
     if (!isPasswordValid) {
+      const nextAttempts = user.failedLoginAttempts + 1;
+      const isLocked = nextAttempts >= LOGIN_LOCKOUT_THRESHOLD;
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: isLocked ? 0 : nextAttempts,
+          lockedUntil: isLocked ? new Date(Date.now() + LOGIN_LOCKOUT_DURATION_MS) : null,
+        },
+      });
+
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
+
     // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role, {
+      revokeExistingTokens: true,
+    });
 
     return {
       ...tokens,
+      message: 'Login successful',
+      mustChangePassword: user.mustChangePassword,
       user: {
         id: user.id,
         email: user.email,
         displayName: user.displayName,
         role: user.role,
+        mustChangePassword: user.mustChangePassword,
       },
     };
   }
 
-  async logout(userId: string, token: string): Promise<void> {
-    // Extract token ID and revoke refresh token
-    const decoded = this.jwtService.decode(token) as any;
-    if (decoded?.sub) {
-      // Find and revoke refresh token
-      await this.prisma.refreshToken.updateMany({
-        where: {
-          userId,
-          revokedAt: null,
-        },
-        data: {
-          revokedAt: new Date(),
-        },
-      });
-    }
+  async logout(userId: string): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
   }
 
   async getProfile(userId: string) {
@@ -84,8 +119,19 @@ export class AuthService {
         email: true,
         displayName: true,
         role: true,
+        mustChangePassword: true,
         dateOfBirth: true,
         gender: true,
+        doctor: {
+          select: {
+            specialization: true,
+          },
+        },
+        nurse: {
+          select: {
+            department: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -95,11 +141,27 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    return user;
+    return {
+      userId: user.id,
+      displayName: user.displayName,
+      email: user.email,
+      gender: user.gender,
+      role: user.role,
+      mustChangePassword: user.mustChangePassword,
+      ...(user.doctor?.specialization ? { specialization: user.doctor.specialization } : {}),
+      ...(user.nurse?.department ? { department: user.nurse.department } : {}),
+      dateOfBirth: user.dateOfBirth,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 
   async refreshToken(refreshTokenDto: RefreshTokenDto): Promise<TokenResponseDto> {
     const { refreshToken } = refreshTokenDto;
+
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token not found');
+    }
 
     try {
       // Verify refresh token
@@ -130,10 +192,15 @@ export class AuthService {
         throw new UnauthorizedException('User not found');
       }
 
-      // Generate new tokens
-      const tokens = await this.generateTokens(user.id, user.email, user.role);
+      // Generate new tokens and rotate existing refresh tokens
+      const tokens = await this.generateTokens(user.id, user.email, user.role, {
+        revokeExistingTokens: true,
+      });
 
-      return tokens;
+      return {
+        ...tokens,
+        message: 'Token refreshed successfully',
+      };
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -142,11 +209,12 @@ export class AuthService {
   async updatePassword(
     userId: string,
     updatePasswordDto: UpdatePasswordDto,
-  ): Promise<{ message: string }> {
-    const { currentPassword, newPassword, confirmPassword } = updatePasswordDto;
+  ): Promise<any> {
+    const { currentPassword, newPassword, newPasswordConfirm, confirmPassword } = updatePasswordDto;
+    const passwordConfirmation = newPasswordConfirm || confirmPassword;
 
     // Verify password confirmation match
-    if (newPassword !== confirmPassword) {
+    if (newPassword !== passwordConfirmation) {
       throw new BadRequestException('Passwords do not match');
     }
 
@@ -181,8 +249,30 @@ export class AuthService {
       },
     });
 
+    const updatedUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const tokens = await this.generateTokens(
+      updatedUser.id,
+      updatedUser.email,
+      updatedUser.role,
+      { revokeExistingTokens: true },
+    );
+
     return {
       message: 'Password updated successfully',
+      ...tokens,
+      user: {
+        userId: updatedUser.id,
+        displayName: updatedUser.displayName,
+        role: updatedUser.role,
+        mustChangePassword: false,
+      },
     };
   }
 
@@ -190,7 +280,20 @@ export class AuthService {
     userId: string,
     email: string,
     role: string,
+    options?: { revokeExistingTokens?: boolean },
   ): Promise<TokenResponseDto> {
+    if (options?.revokeExistingTokens) {
+      await this.prisma.refreshToken.updateMany({
+        where: {
+          userId,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: new Date(),
+        },
+      });
+    }
+
     // Generate access token
     const accessToken = this.jwtService.sign(
       {
@@ -221,8 +324,7 @@ export class AuthService {
     );
 
     // Store refresh token in database
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+    const expiresAt = this.getRefreshTokenExpiryDate(refreshTokenExpiration);
 
     await this.prisma.refreshToken.create({
       data: {
@@ -236,5 +338,35 @@ export class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  private getRefreshTokenExpiryDate(duration: string | number): Date {
+    const expiresAt = new Date();
+    const durationMs = this.parseDurationToMs(duration) ?? 7 * 24 * 60 * 60 * 1000;
+    expiresAt.setTime(expiresAt.getTime() + durationMs);
+    return expiresAt;
+  }
+
+  private parseDurationToMs(duration: string | number): number | undefined {
+    if (typeof duration === 'number') {
+      return duration * 1000;
+    }
+
+    const match = /^([0-9]+)(ms|s|m|h|d)$/.exec(duration);
+    if (!match) {
+      return undefined;
+    }
+
+    const value = Number(match[1]);
+    const unit = match[2];
+    const multipliers: Record<string, number> = {
+      ms: 1,
+      s: 1000,
+      m: 60000,
+      h: 3600000,
+      d: 86400000,
+    };
+
+    return value * multipliers[unit];
   }
 }

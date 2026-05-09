@@ -6,9 +6,9 @@ import { PrismaModule } from '@/prisma/prisma.module';
 import { PasswordService } from '@common/password.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
-  controllers: [AdminController],
-  providers: [AdminService, PasswordService],
-  exports: [AdminService],
+	imports: [PrismaModule, AuthModule],
+	controllers: [AdminController],
+	providers: [AdminService, PasswordService],
+	exports: [AdminService],
 })
 export class AdminModule {}
