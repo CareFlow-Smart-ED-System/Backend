@@ -1,18 +1,26 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config'; // Import this
+import { ConfigModule } from '@nestjs/config';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
-import { PatientsModule } from './modules/patients/patients.module';
-import { AuthModule } from './modules/auth/auth.module';
+import { AuthModule } from '@modules/auth/auth.module';
+import { AdminModule } from '@modules/admin/admin.module';
+import { PatientsModule } from '@modules/patients/patients.module';
+import { NotificationsModule } from '@modules/notifications/notifications.module';
 
 @Module({
   imports: [
-    // Load the .env file globally across the entire app
     ConfigModule.forRoot({
-      isGlobal: true, 
+      isGlobal: true,
+      envFilePath: '.env',
     }),
     PrismaModule,
-    PatientsModule,
     AuthModule,
+    AdminModule,
+    PatientsModule,
+    NotificationsModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

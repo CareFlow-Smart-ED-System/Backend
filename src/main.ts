@@ -1,30 +1,69 @@
+import { config } from 'dotenv';
+config(); // Load .env variables
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import * as dotenv from 'dotenv';
-dotenv.config();
+import { AllExceptionsFilter } from '@common/filters/all-exceptions.filter';
+import { ResponseInterceptor } from '@common/interceptors/response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.use(cookieParser());
 
-  // 1. Set the global prefix (so URLs start with /api/v1)
-  app.setGlobalPrefix('api/v1');
+  // Global pipes
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
-  // 2. Enable global validation for DTOs
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    transform: true,
-    forbidNonWhitelisted: true,
-  }));
-
-  // 3. Register our custom error handler
+  // Global filters
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  // 4. Enable CORS (crucial for when the frontend tries to connect)
-  app.enableCors();
+  // Global interceptors
+  app.useGlobalInterceptors(new ResponseInterceptor());
 
-  await app.listen(3000);
-  console.log(`Application is running on: http://localhost:3000/api/v1`);
+  // CORS
+  app.enableCors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    credentials: true,
+  });
+
+  // Swagger Configuration
+  const config = new DocumentBuilder()
+    .setTitle('CareFlow Smart ED System API')
+    .setDescription('Backend API for Emergency Department Management System')
+    .setVersion('1.0.0')
+    .addTag('auth', 'Authentication endpoints')
+    .addTag('admin', 'Admin management endpoints')
+    .addTag('patients', 'Patient management')
+    .addTag('cases', 'Emergency case management')
+    .addTag('triage', 'Triage assessment')
+    .addTag('queue', 'Patient queue management')
+    .addTag('doctors', 'Doctor operations')
+    .addTag('nurses', 'Nursing documentation')
+    .addTag('notifications', 'System notifications')
+    .addTag('billing', 'Payment processing')
+    .addTag('appointments', 'Follow-up scheduling')
+    .addCookieAuth('accessToken')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
+
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  console.log(`✅ CareFlow Backend is running on http://localhost:${port}`);
+  console.log(`📚 Swagger API docs available at http://localhost:${port}/api`);
 }
+
 bootstrap();

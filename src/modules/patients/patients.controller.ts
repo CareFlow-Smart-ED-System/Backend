@@ -3,12 +3,14 @@ import {
   Post,
   Get,
   Patch,
+  Put,
   Body,
   Param,
   Query,
   UseGuards,
   HttpCode,
 } from '@nestjs/common';
+import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBody } from '@nestjs/swagger';
 import { PatientsService } from './patients.service';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
@@ -23,6 +25,8 @@ import {
   GetMedicalRecordsQueryDto,
 } from './dto';
 
+@ApiTags('patients')
+@ApiCookieAuth('accessToken')
 @Controller('patients')
 export class PatientsController {
   constructor(private patientsService: PatientsService) {}
@@ -34,6 +38,8 @@ export class PatientsController {
    */
   @Post('quick-register')
   @HttpCode(201)
+  @ApiOperation({ summary: 'Quick register a new patient' })
+  @ApiResponse({ status: 201, description: 'Patient registered successfully' })
   async quickRegister(@Body() quickRegisterDto: QuickRegisterDto) {
     const result = await this.patientsService.quickRegister(quickRegisterDto);
     return {
@@ -51,6 +57,10 @@ export class PatientsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('RECEPTIONIST', 'ADMIN')
   @HttpCode(201)
+  @ApiOperation({ summary: 'Link an account to a patient profile' })
+  @ApiResponse({ status: 200, description: 'Account linked successfully' })
+  @ApiParam({ name: 'patientId', description: 'Patient ID' })
+  @ApiBody({ type: LinkAccountDto })
   async linkAccount(
     @Param('patientId') patientId: string,
     @Body() linkAccountDto: LinkAccountDto,
@@ -75,6 +85,9 @@ export class PatientsController {
   @Get(':patientId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('DOCTOR', 'NURSE', 'RECEPTIONIST', 'ADMIN')
+  @ApiOperation({ summary: 'Get a patient profile' })
+  @ApiResponse({ status: 200, description: 'Patient profile' })
+  @ApiParam({ name: 'patientId', description: 'Patient ID' })
   async getProfile(
     @Param('patientId') patientId: string,
     @CurrentUser() user: any,
@@ -91,6 +104,10 @@ export class PatientsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('RECEPTIONIST', 'ADMIN')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Update a patient profile' })
+  @ApiResponse({ status: 200, description: 'Patient profile updated successfully' })
+  @ApiParam({ name: 'patientId', description: 'Patient ID' })
+  @ApiBody({ type: UpdatePatientDto })
   async updateProfile(
     @Param('patientId') patientId: string,
     @Body() updatePatientDto: UpdatePatientDto,
@@ -111,6 +128,9 @@ export class PatientsController {
   @Get('cases/:caseId/medical-records')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('DOCTOR', 'NURSE')
+  @ApiOperation({ summary: 'List patient medical records' })
+  @ApiResponse({ status: 200, description: 'Medical records list' })
+  @ApiParam({ name: 'caseId', description: 'Case ID' })
   async getMedicalRecords(
     @Param('caseId') caseId: string,
     @Query() queryDto: GetMedicalRecordsQueryDto,
@@ -132,6 +152,10 @@ export class PatientsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('DOCTOR')
   @HttpCode(201)
+  @ApiOperation({ summary: 'Create a patient medical record' })
+  @ApiResponse({ status: 201, description: 'Medical record created successfully' })
+  @ApiParam({ name: 'caseId', description: 'Case ID' })
+  @ApiBody({ type: CreateMedicalRecordDto })
   async createMedicalRecord(
     @Param('caseId') caseId: string,
     @Body() createMedicalRecordDto: CreateMedicalRecordDto,
@@ -158,6 +182,11 @@ export class PatientsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('DOCTOR')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Update a patient medical record' })
+  @ApiResponse({ status: 200, description: 'Medical record updated successfully' })
+  @ApiParam({ name: 'caseId', description: 'Case ID' })
+  @ApiParam({ name: 'recordId', description: 'Medical Record ID' })
+  @ApiBody({ type: UpdateMedicalRecordDto })
   async updateMedicalRecord(
     @Param('caseId') caseId: string,
     @Param('recordId') recordId: string,
