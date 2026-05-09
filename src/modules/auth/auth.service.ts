@@ -9,7 +9,6 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@/prisma/prisma.service';
 import { PasswordService } from '@common/password.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { LoginResponseDto, TokenResponseDto } from './dto/auth-response.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
@@ -23,45 +22,6 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
-
-  async register(registerDto: RegisterDto) {
-    const { email, password, displayName } = registerDto;
-
-    // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      throw new ConflictException('User with this email already exists');
-    }
-
-    // Hash password
-    const passwordHash = await this.passwordService.hashPassword(password);
-
-    // Create user (staff registration, defaults to ADMIN role)
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        displayName,
-        passwordHash,
-        role: 'ADMIN',
-      },
-    });
-
-    // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-
-    return {
-      ...tokens,
-      user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        role: user.role,
-      },
-    };
-  }
 
   async login(loginDto: LoginDto): Promise<LoginResponseDto> {
     const { email, password } = loginDto;

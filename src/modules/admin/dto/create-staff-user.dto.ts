@@ -1,19 +1,59 @@
-import { IsEmail, IsString, MinLength, IsEnum } from 'class-validator';
-import { UserRole } from '@prisma/client';
+import { Type } from 'class-transformer';
+import {
+  IsDate,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Gender, UserRole } from '@prisma/client';
 
 export class CreateStaffUserDto {
-  @IsEmail()
-  email: string;
-
+  @ApiProperty({ example: 'Dr. Sara Ahmed' })
   @IsString()
   displayName: string;
 
-  @IsEnum(['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'])
-  role: UserRole;
+  @ApiProperty({ example: 'sara.ahmed@careflow.com' })
+  @IsEmail()
+  email: string;
 
+  @ApiProperty({ example: 'SecurePass123!', minLength: 8 })
   @IsString()
   @MinLength(8)
-  temporaryPassword: string;
+  password: string;
+
+  @ApiPropertyOptional({ example: '2000-01-15', type: String, format: 'date' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  dateOfBirth?: Date;
+
+  @ApiPropertyOptional({ example: 'FEMALE', enum: Gender })
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
+
+  @ApiProperty({ enum: UserRole, example: 'DOCTOR' })
+  @IsEnum(UserRole)
+  role: UserRole;
+
+  @ApiPropertyOptional({
+    example: 'Cardiology',
+    description: 'Required when role is DOCTOR',
+  })
+  @IsOptional()
+  @IsString()
+  specialization?: string;
+
+  @ApiPropertyOptional({
+    example: 'Emergency',
+    description: 'Required when role is NURSE',
+  })
+  @IsOptional()
+  @IsString()
+  department?: string;
 }
 
 export class ResetPasswordDto {

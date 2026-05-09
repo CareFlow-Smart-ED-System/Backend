@@ -1,6 +1,12 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { PasswordService } from '@common/password.service';
+import { UserRole } from '@prisma/client';
 import { CreateStaffUserDto, ResetPasswordDto } from './dto/create-staff-user.dto';
 
 @Injectable()
@@ -15,10 +21,29 @@ export class AdminService {
   }
 
   async createStaffUser(createStaffUserDto: CreateStaffUserDto) {
-    const { email, displayName, role, temporaryPassword } = createStaffUserDto;
+    const {
+      email,
+      displayName,
+      password,
+      dateOfBirth,
+      gender,
+      role,
+      specialization,
+      department,
+    } = createStaffUserDto;
+
+    if (role === UserRole.DOCTOR && !specialization) {
+      throw new BadRequestException('specialization is required for DOCTOR role');
+    }
+
+    if (role === UserRole.NURSE && !department) {
+      throw new BadRequestException('department is required for NURSE role');
+    }
 
     // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
+    const userModel = this.prisma.user as any;
+
+    const existingUser = await userModel.findUnique({
       where: { email },
     });
 
@@ -26,18 +51,37 @@ export class AdminService {
       throw new ConflictException('User with this email already exists');
     }
 
-    // Hash temporary password
-    const passwordHash = await this.passwordService.hashPassword(temporaryPassword);
+    // Hash initial password
+    const passwordHash = await this.passwordService.hashPassword(password);
 
-    // Create user with mustChangePassword = true
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        displayName,
-        role: role as any,
-        passwordHash,
-        mustChangePassword: true, // User must change password on first login
-      },
+    const userData: any = {
+      email,
+      displayName,
+      role,
+      passwordHash,
+      mustChangePassword: true,
+      ...(dateOfBirth && { dateOfBirth }),
+      ...(gender && { gender }),
+    };
+
+    if (role === UserRole.DOCTOR) {
+      userData.doctor = {
+        create: {
+          specialization,
+        },
+      };
+    }
+
+    if (role === UserRole.NURSE) {
+      userData.nurse = {
+        create: {
+          department,
+        },
+      };
+    }
+
+    const user = await userModel.create({
+      data: userData,
       select: {
         id: true,
         email: true,
@@ -46,21 +90,46 @@ export class AdminService {
         mustChangePassword: true,
         createdAt: true,
         updatedAt: true,
+        doctor: {
+          select: {
+            specialization: true,
+          },
+        },
+        nurse: {
+          select: {
+            department: true,
+          },
+        },
       },
-    });
+    }) as any;
+
+    const response = {
+      userId: user.id,
+      displayName: user.displayName,
+      email: user.email,
+      role: user.role,
+      message: 'Staff registered successfully',
+      ...(user.doctor?.specialization && {
+        specialization: user.doctor.specialization,
+      }),
+      ...(user.nurse?.department && {
+        department: user.nurse.department,
+      }),
+    };
 
     return {
-      ...user,
-      message: 'Staff user created successfully. User must change password on first login.',
+      ...response,
     };
   }
 
   async resetPassword(userId: string, resetPasswordDto: ResetPasswordDto) {
     const { newTemporaryPassword } = resetPasswordDto;
 
+    const userModel = this.prisma.user as any;
+
     // Check if user exists
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+    const user = await userModel.findUnique({
+      where: { id: userId as any },
     });
 
     if (!user) {
@@ -71,8 +140,8 @@ export class AdminService {
     const passwordHash = await this.passwordService.hashPassword(newTemporaryPassword);
 
     // Update password and set mustChangePassword = true
-    const updatedUser = await this.prisma.user.update({
-      where: { id: userId },
+    const updatedUser = await userModel.update({
+      where: { id: userId as any },
       data: {
         passwordHash,
         mustChangePassword: true, // Force password change on next login
@@ -86,7 +155,7 @@ export class AdminService {
         createdAt: true,
         updatedAt: true,
       },
-    });
+    }) as any;
 
     return {
       ...updatedUser,
