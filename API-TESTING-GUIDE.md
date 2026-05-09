@@ -39,7 +39,7 @@ Content-Type: application/json
     "accessToken": "eyJhbGciOiJIUzI1NiIs...",
     "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
     "user": {
-      "id": "admin-001",
+      "id": "2f3c9a86-4bb2-4af4-a0fb-3a3b8e4f5a11",
       "email": "admin@careflow.com",
       "displayName": "Admin User",
       "role": "ADMIN"
