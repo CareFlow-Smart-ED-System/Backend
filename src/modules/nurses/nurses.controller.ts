@@ -73,7 +73,8 @@ export class NursesController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get clinical notes for a case' })
   @ApiResponse({ status: 200, description: 'Clinical notes list' })
-  async getClinicalNotes(@Param('caseId') caseId: string) {
-    // TODO: Implement get clinical notes
+  async getClinicalNotes(@Param('caseId') caseId: string, @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number) {
+    return this.nursesService.getClinicalNotes(caseId, page, limit);
   }
 }

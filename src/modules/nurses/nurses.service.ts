@@ -109,7 +109,32 @@ export class NursesService {
     };
   }
 
-  async getClinicalNotes() {
-    // TODO: Implement get clinical notes logic
+  async getClinicalNotes(caseId: string,page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+    const exists = await this.prisma.emergencyCase.findUnique({ where: { id: caseId } });
+    if (!exists) throw new NotFoundException('Case not found');
+    
+    const [notes, total] = await Promise.all([
+      this.prisma.nurseNote.findMany({
+        where: { caseId },
+        skip,
+        take: limit,
+        orderBy: { timestamp: 'desc' },
+      }),
+      this.prisma.nurseNote.count({ where: { caseId } }),
+    ]);
+    return {
+      caseId,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: notes.map((n) => ({
+        id: n.id,
+        nurseId: n.nurseId,
+        note: n.note,
+        timestamp: n.timestamp,
+      })),
+    };
   }
 }
