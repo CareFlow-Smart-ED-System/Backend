@@ -9,7 +9,7 @@ export class QueueService {
   async getPriorityQueue(page: number = 1, limit: number = 20) {
   const skip = (page - 1) * limit;
   const cases = await this.prisma.emergencyCase.findMany({
-    where: { status: CaseStatus.WAITING },
+    where: { status: { in: [CaseStatus.WAITING, CaseStatus.UNDER_TREATMENT] } },
     include: {
       patient: { include: { user: true } },
       triage: true,
@@ -46,6 +46,30 @@ export class QueueService {
 }
 
   async getQueueStatistics() {
-    // TODO: Implement get queue statistics logic
+  const activeCases = await this.prisma.emergencyCase.findMany({
+    where: { status: { in: [CaseStatus.WAITING, CaseStatus.UNDER_TREATMENT] } },   // ← use enum
+    include: { triage: true },
+  });
+
+  const now = new Date();
+  let totalWaitMs = 0;
+  const bySeverity = { Critical: 0, Urgent: 0, 'Non-Urgent': 0 };
+
+  for (const c of activeCases) {
+    totalWaitMs += now.getTime() - new Date(c.arrivalTime).getTime();
+    const sev = c.triage?.severity?.toUpperCase();
+    if (sev === 'CRITICAL') bySeverity.Critical++;
+    else if (sev === 'URGENT') bySeverity.Urgent++;
+    else bySeverity['Non-Urgent']++;
   }
+
+  const totalWaiting = activeCases.length;
+  return {
+    totalWaiting,
+    bySeverity,
+    averageWaitMinutes: totalWaiting > 0
+      ? Math.floor(totalWaitMs / totalWaiting / 60000)
+      : 0,
+  };
+}
 }

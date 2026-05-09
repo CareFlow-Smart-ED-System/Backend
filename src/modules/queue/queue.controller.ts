@@ -30,6 +30,6 @@ export class QueueController {
   @ApiOperation({ summary: 'Get queue statistics' })
   @ApiResponse({ status: 200, description: 'Queue statistics' })
   async getQueueStatistics() {
-    // TODO: Implement get queue statistics
+  return this.queueService.getQueueStatistics();
   }
 }
