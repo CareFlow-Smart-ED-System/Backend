@@ -1,18 +1,29 @@
-import {
+﻿import {
   Controller,
   Post,
   Get,
-  Put,
+  Patch,
   Body,
   Param,
+  Query,
   UseGuards,
   HttpCode,
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PatientsService } from './patients.service';
+import { CurrentUser } from '@common/decorators/current-user.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
+import { UserRole } from '@prisma/client';
+import {
+  QuickRegisterDto,
+  LinkAccountDto,
+  UpdatePatientDto,
+  CreateMedicalRecordDto,
+  UpdateMedicalRecordDto,
+  GetMedicalRecordsQueryDto,
+} from './dto';
 
 @ApiTags('patients')
 @ApiCookieAuth('accessToken')
@@ -24,62 +35,119 @@ export class PatientsController {
   @HttpCode(201)
   @ApiOperation({ summary: 'Quick register a new patient' })
   @ApiResponse({ status: 201, description: 'Patient registered successfully' })
-  async quickRegister() {
-    // TODO: Implement quick registration
+  async quickRegister(@Body() quickRegisterDto: QuickRegisterDto) {
+    const result = await this.patientsService.quickRegister(quickRegisterDto);
+    return {
+      message: 'Patient registered successfully',
+      ...result,
+    };
   }
 
   @Post(':patientId/link-account')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('PATIENT')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  @HttpCode(201)
   @ApiOperation({ summary: 'Link an account to a patient profile' })
-  @ApiResponse({ status: 200, description: 'Account linked successfully' })
-  async linkAccount(@Param('patientId') patientId: string) {
-    // TODO: Implement link account
+  @ApiResponse({ status: 201, description: 'Account linked successfully' })
+  async linkAccount(
+    @Param('patientId') patientId: string,
+    @Body() linkAccountDto: LinkAccountDto,
+  ) {
+    const result = await this.patientsService.linkAccount(patientId, linkAccountDto);
+    return {
+      message: 'User account successfully linked to patient',
+      ...result,
+    };
   }
 
   @Get(':patientId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST, UserRole.ADMIN)
   @ApiOperation({ summary: 'Get a patient profile' })
   @ApiResponse({ status: 200, description: 'Patient profile' })
-  async getProfile(@Param('patientId') patientId: string) {
-    // TODO: Implement get profile
+  async getProfile(
+    @Param('patientId') patientId: string,
+    @CurrentUser() user: any,
+  ) {
+    return await this.patientsService.getProfile(patientId, user);
   }
 
-  @Put(':patientId')
+  @Patch(':patientId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('PATIENT', 'ADMIN')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  @HttpCode(200)
   @ApiOperation({ summary: 'Update a patient profile' })
   @ApiResponse({ status: 200, description: 'Patient profile updated successfully' })
-  async updateProfile(@Param('patientId') patientId: string) {
-    // TODO: Implement update profile
+  async updateProfile(
+    @Param('patientId') patientId: string,
+    @Body() updatePatientDto: UpdatePatientDto,
+  ) {
+    await this.patientsService.updateProfile(patientId, updatePatientDto);
+    return {
+      message: 'Patient profile updated successfully',
+      patientId,
+    };
   }
 
-  @Get(':patientId/medical-records')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'List patient medical records' })
+  // ─── Medical Records ───────────────────────────────────────────────────────
+
+  @Get('cases/:caseId/medical-records')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.DOCTOR, UserRole.NURSE)
+  @ApiOperation({ summary: 'Get medical records for a case' })
   @ApiResponse({ status: 200, description: 'Medical records list' })
-  async getMedicalRecords(@Param('patientId') patientId: string) {
-    // TODO: Implement get medical records
+  async getMedicalRecords(
+    @Param('caseId') caseId: string,
+    @Query() queryDto: GetMedicalRecordsQueryDto,
+    @CurrentUser() user: any,
+  ) {
+    return await this.patientsService.getMedicalRecords(caseId, queryDto, user);
   }
 
-  @Post(':patientId/medical-records')
+  @Post('cases/:caseId/medical-records')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DOCTOR', 'NURSE', 'ADMIN')
-  @ApiOperation({ summary: 'Create a patient medical record' })
+  @Roles(UserRole.DOCTOR)
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Create a medical record for a case' })
   @ApiResponse({ status: 201, description: 'Medical record created successfully' })
-  async createMedicalRecord(@Param('patientId') patientId: string) {
-    // TODO: Implement create medical record
+  async createMedicalRecord(
+    @Param('caseId') caseId: string,
+    @Body() createMedicalRecordDto: CreateMedicalRecordDto,
+    @CurrentUser() user: any,
+  ) {
+    const result = await this.patientsService.createMedicalRecord(
+      caseId,
+      createMedicalRecordDto,
+      user,
+    );
+    return {
+      message: 'Medical record created successfully',
+      ...result,
+    };
   }
 
-  @Put(':patientId/medical-records/:recordId')
+  @Patch('cases/:caseId/medical-records/:recordId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DOCTOR', 'ADMIN')
-  @ApiOperation({ summary: 'Update a patient medical record' })
+  @Roles(UserRole.DOCTOR)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Update a medical record' })
   @ApiResponse({ status: 200, description: 'Medical record updated successfully' })
   async updateMedicalRecord(
-    @Param('patientId') patientId: string,
+    @Param('caseId') caseId: string,
     @Param('recordId') recordId: string,
+    @Body() updateMedicalRecordDto: UpdateMedicalRecordDto,
+    @CurrentUser() user: any,
   ) {
-    // TODO: Implement update medical record
+    await this.patientsService.updateMedicalRecord(
+      caseId,
+      recordId,
+      updateMedicalRecordDto,
+      user,
+    );
+    return {
+      message: 'Medical record updated successfully',
+      recordId,
+      caseId,
+    };
   }
 }

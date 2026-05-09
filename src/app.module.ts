@@ -7,6 +7,8 @@ import { AuthModule } from '@modules/auth/auth.module';
 import { AdminModule } from '@modules/admin/admin.module';
 import { DoctorsModule } from '@modules/doctors/doctors.module';
 import { QueueModule } from '@modules/queue/queue.module';
+import { PatientsModule } from '@modules/patients/patients.module';
+import { NotificationsModule } from '@modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { QueueModule } from '@modules/queue/queue.module';
     AdminModule,
     DoctorsModule,
     QueueModule,
+    PatientsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
