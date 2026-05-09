@@ -71,3 +71,25 @@ export class UserResponseDto {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export class UpdateUserDto {
+  @ApiPropertyOptional({ example: 'Updated Name' })
+  @IsOptional()
+  @IsString()
+  displayName?: string;
+
+  @ApiPropertyOptional({ enum: UserRole })
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
+
+  @ApiPropertyOptional({ example: 'Cardiology' })
+  @IsOptional()
+  @IsString()
+  specialization?: string;
+
+  @ApiPropertyOptional({ example: 'Emergency' })
+  @IsOptional()
+  @IsString()
+  department?: string;
+}
