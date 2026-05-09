@@ -179,13 +179,20 @@ export class PatientsService {
       age--;
     }
 
+    const userUpdateData: any = {
+      dateOfBirth: dob,
+      gender: updatePatientDto.gender,
+    };
+
+    const nameParts: string[] = [];
+    if (updatePatientDto.firstName) nameParts.push(updatePatientDto.firstName);
+    if (updatePatientDto.lastName) nameParts.push(updatePatientDto.lastName);
+    const composed = nameParts.join(' ').trim();
+    if (composed) userUpdateData.displayName = composed;
+
     await this.prisma.user.update({
       where: { id: patient.userId },
-      data: {
-        displayName: updatePatientDto.displayName,
-        dateOfBirth: dob,
-        gender: updatePatientDto.gender,
-      },
+      data: userUpdateData,
     });
 
     await this.prisma.patient.update({
