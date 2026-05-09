@@ -6,6 +6,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from '@modules/auth/auth.module';
 import { AdminModule } from '@modules/admin/admin.module';
 import { DoctorsModule } from '@modules/doctors/doctors.module';
+import { QueueModule } from '@modules/queue/queue.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -15,7 +17,8 @@ import { DoctorsModule } from '@modules/doctors/doctors.module';
     PrismaModule,
     AuthModule,
     AdminModule,
-    DoctorsModule
+    DoctorsModule,
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [AppService],
