@@ -5,7 +5,7 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from '@modules/auth/auth.module';
 import { AdminModule } from '@modules/admin/admin.module';
-
+import { DoctorsModule } from '@modules/doctors/doctors.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -15,6 +15,7 @@ import { AdminModule } from '@modules/admin/admin.module';
     PrismaModule,
     AuthModule,
     AdminModule,
+    DoctorsModule
   ],
   controllers: [AppController],
   providers: [AppService],
