@@ -55,12 +55,16 @@ export class PatientsService {
     const patient = await this.prisma.patient.create({
       data: {
         userId: user.id,
+        firstName,
+        lastName,
         phone,
       },
     });
 
     return {
       patientId: patient.id,
+      firstName: patient.firstName,
+      lastName: patient.lastName,
       displayName,
       age,
       gender,
@@ -156,6 +160,8 @@ export class PatientsService {
 
     return {
       patientId: patient.id,
+      firstName: patient.firstName,
+      lastName: patient.lastName,
       displayName: patient.user.displayName,
       age,
       gender: patient.user.gender,
@@ -164,7 +170,7 @@ export class PatientsService {
   }
 
   // ─── Update Profile ────────────────────────────────────────────────────────
-  // displayName/dateOfBirth/gender live on User; phone lives on Patient.
+  // firstName/lastName/phone live on Patient; dateOfBirth/gender live on User.
 
   async updateProfile(patientId: string, updatePatientDto: UpdatePatientDto) {
     const patient = await this.prisma.patient.findUniqueOrThrow({
@@ -182,7 +188,6 @@ export class PatientsService {
     await this.prisma.user.update({
       where: { id: patient.userId },
       data: {
-        displayName: updatePatientDto.displayName,
         dateOfBirth: dob,
         gender: updatePatientDto.gender,
       },
@@ -191,6 +196,8 @@ export class PatientsService {
     await this.prisma.patient.update({
       where: { id: patientId },
       data: {
+        firstName: updatePatientDto.firstName,
+        lastName: updatePatientDto.lastName,
         phone: updatePatientDto.phone,
       },
     });

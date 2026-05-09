@@ -5,7 +5,11 @@ import { Gender } from '@prisma/client';
 export class UpdatePatientDto {
   @IsOptional()
   @IsString()
-  displayName?: string;
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
 
   @IsOptional()
   @IsDateString()
