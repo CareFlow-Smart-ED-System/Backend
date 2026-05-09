@@ -1,11 +1,14 @@
-﻿// update-patient.dto.ts
-import { IsOptional, IsString, IsDateString, IsEnum } from 'class-validator';
+﻿import { IsOptional, IsString, IsDateString, IsEnum, IsPhoneNumber } from 'class-validator';
 import { Gender } from '@prisma/client';
 
 export class UpdatePatientDto {
   @IsOptional()
   @IsString()
-  displayName?: string;
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
 
   @IsOptional()
   @IsDateString()
@@ -16,6 +19,6 @@ export class UpdatePatientDto {
   gender?: Gender;
 
   @IsOptional()
-  @IsString()
+  @IsPhoneNumber()
   phone?: string;
 }

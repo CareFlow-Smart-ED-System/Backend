@@ -7,6 +7,8 @@ import {
   Body,
   UseGuards,
   HttpCode,
+  Query,
+  Delete,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,7 +19,9 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
-import { CreateStaffUserDto, ResetPasswordDto } from './dto/create-staff-user.dto';
+import { CreateStaffUserDto, ResetPasswordDto, UpdateUserDto } from './dto/create-staff-user.dto';
+import { ListUsersQueryDto } from './dto/list-users.query';
+import { GetAuditLogsQueryDto } from './dto/audit-logs.query';
 import { Roles } from '@common/decorators/roles.decorator';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
@@ -57,8 +61,8 @@ export class AdminController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
-  async listUsers() {
-    return this.adminService.listUsers();
+  async listUsers(@Query() query: ListUsersQueryDto) {
+    return this.adminService.listUsers(query);
   }
 
   @Post('users')
@@ -212,7 +216,23 @@ export class AdminController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
-  async getAuditLogs() {
-    return this.adminService.getAuditLogs();
+  async getAuditLogs(@Query() query: GetAuditLogsQueryDto) {
+    return this.adminService.getAuditLogs(query);
+  }
+
+  @Patch('users/:userId')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Update user profile or role (ADMIN only)' })
+  @ApiParam({ name: 'userId', type: 'string' })
+  async updateUser(@Param('userId') userId: string, @Body() dto: UpdateUserDto) {
+    return this.adminService.updateUser(userId, dto);
+  }
+
+  @Delete('users/:userId')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Delete a user (ADMIN only)' })
+  @ApiParam({ name: 'userId', type: 'string' })
+  async deleteUser(@Param('userId') userId: string) {
+    return this.adminService.deleteUser(userId);
   }
 }
