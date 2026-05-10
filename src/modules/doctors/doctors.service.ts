@@ -50,6 +50,11 @@ export class DoctorsService {
       if (!isActive) {
         throw new ForbiddenException('Can only view investigation results for active cases');
       }
+    } else if (
+      user.role === UserRole.LAB_STAFF ||
+      user.role === UserRole.RADIOLOGIST
+    ) {
+      // Lab and radiology staff can read investigation data for all cases.
     } else {
       throw new ForbiddenException('Unauthorized access to this case');
     }
@@ -128,6 +133,13 @@ export class DoctorsService {
   async getLabResults(caseId: string, user: any, page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
     await this.assertReadableCase(caseId, user);
+    if (
+      user?.role !== UserRole.DOCTOR &&
+      user?.role !== UserRole.NURSE &&
+      user?.role !== UserRole.LAB_STAFF
+    ) {
+      throw new ForbiddenException('Unauthorized access to this case');
+    }
     const prisma = this.prisma as any;
     const [results, total] = await Promise.all([
       prisma.labResult.findMany({ where: { caseId }, skip, take: limit }),
@@ -154,6 +166,13 @@ export class DoctorsService {
   async getImagingReports(caseId: string, user: any, page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
     await this.assertReadableCase(caseId, user);
+    if (
+      user?.role !== UserRole.DOCTOR &&
+      user?.role !== UserRole.NURSE &&
+      user?.role !== UserRole.RADIOLOGIST
+    ) {
+      throw new ForbiddenException('Unauthorized access to this case');
+    }
     const prisma = this.prisma as any;
     const [reports, total] = await Promise.all([
       prisma.imagingReport.findMany({ where: { caseId }, skip, take: limit }),
