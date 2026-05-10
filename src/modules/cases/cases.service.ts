@@ -431,6 +431,65 @@ export class CasesService {
     };
   }
 
+  // 6b. GET MEDICAL RECORDS FOR A CASE
+  async getMedicalRecords(
+    caseId: string,
+    query: { page?: number; limit?: number },
+    currentUser: { sub: string; role: UserRole },
+  ) {
+    const { page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+
+    const emergencyCase = await this.prisma.emergencyCase.findUnique({
+      where: { id: caseId },
+      include: { caseDoctor: true },
+    });
+
+    if (!emergencyCase) {
+      throw new NotFoundException('Case not found');
+    }
+
+    if (currentUser.role === UserRole.DOCTOR) {
+      const doctor = await this.getDoctorByUserId(currentUser.sub);
+      const isAssigned = emergencyCase.caseDoctor.some(
+        (cd) => cd.doctorId === doctor.id,
+      );
+      if (!isAssigned) {
+        throw new ForbiddenException('Doctor is not authorized to view this case');
+      }
+    } else if (currentUser.role === UserRole.NURSE) {
+      const isActive =
+        emergencyCase.status === CaseStatus.WAITING ||
+        emergencyCase.status === CaseStatus.UNDER_TREATMENT;
+      if (!isActive) {
+        throw new ForbiddenException('Can only view medical records for active cases');
+      }
+    }
+
+    const [medicalRecords, totalRecords] = await Promise.all([
+      this.prisma.medicalRecord.findMany({ where: { caseId }, skip, take: limit }),
+      this.prisma.medicalRecord.count({ where: { caseId } }),
+    ]);
+
+    return {
+      patientId: emergencyCase.patientId,
+      total: totalRecords,
+      page,
+      limit,
+      totalPages: Math.ceil(totalRecords / limit),
+      data: medicalRecords.map((record) => ({
+        recordId: record.id,
+        caseId: record.caseId,
+        diagnosis: record.diagnosis,
+        notes: record.notes,
+        chronicDiseases: record.chronicDiseases,
+        familyHistory: record.familyHistory,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+      })),
+    };
+  }
+
   // 7. ASSIGN DOCTOR
 //   async assignDoctor(
 //     caseId: string,

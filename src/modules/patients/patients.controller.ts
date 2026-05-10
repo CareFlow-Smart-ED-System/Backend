@@ -9,7 +9,7 @@
   UseGuards,
   HttpCode,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBody } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { PatientsService } from './patients.service';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
@@ -155,34 +155,52 @@ export class PatientsController {
   @Roles(UserRole.DOCTOR, UserRole.NURSE)
   @ApiOperation({ summary: 'Get medical records for a case' })
   @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+    description: 'Page number for pagination',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    example: 10,
+    description: 'Records per page',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Medical records list retrieved',
+    description: 'Medical records list retrieved successfully',
     schema: {
       type: 'object',
       properties: {
-        patientId: { type: 'string' },
-        total: { type: 'number' },
-        page: { type: 'number' },
-        limit: { type: 'number' },
-        totalPages: { type: 'number' },
+        patientId: { type: 'string', example: 'uuid' },
+        total: { type: 'number', example: 5 },
+        page: { type: 'number', example: 1 },
+        limit: { type: 'number', example: 10 },
+        totalPages: { type: 'number', example: 1 },
         data: {
           type: 'array',
           items: {
             type: 'object',
             properties: {
-              recordId: { type: 'string' },
-              caseId: { type: 'string' },
-              diagnosis: { type: 'string' },
-              notes: { type: 'string' },
-              chronicDiseases: { type: 'string' },
-              familyHistory: { type: 'string' },
+              recordId: { type: 'string', example: 'uuid' },
+              caseId: { type: 'string', example: 'uuid' },
+              diagnosis: { type: 'string', example: 'Acute appendicitis' },
+              notes: { type: 'string', example: 'Patient presented with severe right lower quadrant pain' },
+              chronicDiseases: { type: 'string', example: 'Type 2 Diabetes', nullable: true },
+              familyHistory: { type: 'string', example: 'Hypertension, Stroke', nullable: true },
+              createdAt: { type: 'string', format: 'date-time', example: '2026-05-10T12:00:00Z' },
+              updatedAt: { type: 'string', format: 'date-time', example: '2026-05-10T12:00:00Z' },
             },
           },
         },
       },
     },
   })
+  @ApiResponse({ status: 404, description: 'Case not found' })
+  @ApiResponse({ status: 403, description: 'Unauthorized access to this case' })
   async getMedicalRecords(
     @Param('caseId') caseId: string,
     @Query() queryDto: GetMedicalRecordsQueryDto,

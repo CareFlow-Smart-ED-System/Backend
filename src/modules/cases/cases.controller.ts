@@ -166,6 +166,54 @@ export class CasesController {
     return this.casesService.getCaseTimeline(caseId);
   }
 
+  @Get(':caseId/medical-records')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.DOCTOR, UserRole.NURSE)
+  @ApiOperation({ summary: 'Get medical records for a case' })
+  @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiResponse({
+    status: 200,
+    description: 'Medical records list retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        patientId: { type: 'string', example: 'uuid' },
+        total: { type: 'number', example: 5 },
+        page: { type: 'number', example: 1 },
+        limit: { type: 'number', example: 10 },
+        totalPages: { type: 'number', example: 1 },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              recordId: { type: 'string', example: 'uuid' },
+              caseId: { type: 'string', example: 'uuid' },
+              diagnosis: { type: 'string', example: 'Acute appendicitis' },
+              notes: { type: 'string', example: 'Patient presented with severe right lower quadrant pain' },
+              chronicDiseases: { type: 'string', example: 'Type 2 Diabetes', nullable: true },
+              familyHistory: { type: 'string', example: 'Hypertension, Stroke', nullable: true },
+              createdAt: { type: 'string', format: 'date-time', example: '2026-05-10T12:00:00Z' },
+              updatedAt: { type: 'string', format: 'date-time', example: '2026-05-10T12:00:00Z' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Case not found' })
+  @ApiResponse({ status: 403, description: 'Unauthorized access to this case' })
+  async getMedicalRecords(
+    @Param('caseId') caseId: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.casesService.getMedicalRecords(caseId, { page, limit }, user);
+  }
+
   @Patch(':caseId/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('DOCTOR', 'NURSE')
