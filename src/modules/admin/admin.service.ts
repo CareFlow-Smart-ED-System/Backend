@@ -8,6 +8,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { PasswordService } from '@common/password.service';
 import { UserRole } from '@prisma/client';
 import { CreateStaffUserDto, ResetPasswordDto } from './dto/create-staff-user.dto';
+import { CreateAuditLogDto } from './dto/create-audit-log.dto';
 
 @Injectable()
 export class AdminService {
@@ -16,8 +17,41 @@ export class AdminService {
     private passwordService: PasswordService,
   ) {}
 
-  async listUsers() {
-    // TODO: Implement list users logic
+  async listUsers(query?: any) {
+    // Default pagination
+    const page = Number(query?.page ?? 1);
+    const limit = Number(query?.limit ?? 20);
+    const skip = (page - 1) * limit;
+
+    const [total, users] = await Promise.all([
+      this.prisma.user.count({ where: query?.role ? { role: query.role } : {} }),
+      this.prisma.user.findMany({
+        where: query?.role ? { role: query.role } : {},
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          displayName: true,
+          email: true,
+          role: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    return {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: users.map((u) => ({
+        userId: u.id,
+        displayName: u.displayName,
+        email: u.email,
+        role: u.role,
+      })),
+    };
   }
 
   async createStaffUser(createStaffUserDto: CreateStaffUserDto) {
@@ -162,12 +196,117 @@ export class AdminService {
       message: 'Password reset successfully. User must change password on next login.',
     };
   }
+  async getAuditLogs(query?: any) {
+    const page = Number(query?.page ?? 1);
+    const limit = Number(query?.limit ?? 20);
+    const skip = (page - 1) * limit;
 
-  async getAuditLogs() {
-    // TODO: Implement get audit logs logic
+    const where: any = {};
+    if (query?.actionType) where.actionType = query.actionType;
+    if (query?.userId) where.userId = query.userId;
+
+    const [total, logs] = await Promise.all([
+      this.prisma.auditLog.count({ where }),
+      this.prisma.auditLog.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { timestamp: 'desc' },
+        include: { user: { select: { displayName: true } } },
+      }),
+    ]);
+
+    return {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: logs.map((l) => ({
+        id: l.id,
+        actionType: l.actionType,
+        performedBy: l.user?.displayName ?? l.userId,
+        targetId: l.targetId,
+        details: l.details,
+        timestamp: l.timestamp,
+      })),
+    };
   }
 
-  async updateUser() {
-    // TODO: Implement update user logic
+  async createAuditLog(dto: CreateAuditLogDto) {
+    const { actionType, userId, targetId, details } = dto as any;
+
+    const created = await this.prisma.auditLog.create({
+      data: {
+        actionType,
+        userId,
+        targetId: targetId ?? null,
+        details: details ?? null,
+      },
+    });
+
+    return {
+      message: 'Audit log created',
+      data: {
+        id: created.id,
+        actionType: created.actionType,
+        userId: created.userId,
+        targetId: created.targetId,
+        details: created.details,
+        timestamp: created.timestamp,
+      },
+    };
+  }
+
+  async updateUser(userId: string, dto: any) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const updateData: any = {};
+    if (dto.displayName) updateData.displayName = dto.displayName;
+    if (dto.role) updateData.role = dto.role;
+
+    // Update user basic fields
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: { id: true },
+    });
+
+    // Handle doctor / nurse relations
+    if (dto.role === 'DOCTOR') {
+      if (dto.specialization) {
+        await this.prisma.doctor.upsert({
+          where: { userId },
+          update: { specialization: dto.specialization },
+          create: { userId, specialization: dto.specialization },
+        });
+      }
+    } else {
+      // remove doctor if exists
+      await this.prisma.doctor.deleteMany({ where: { userId } });
+    }
+
+    if (dto.role === 'NURSE') {
+      if (dto.department) {
+        await this.prisma.nurse.upsert({
+          where: { userId },
+          update: { department: dto.department },
+          create: { userId, department: dto.department },
+        });
+      }
+    } else {
+      await this.prisma.nurse.deleteMany({ where: { userId } });
+    }
+
+    return { message: 'User updated successfully', userId: updated.id };
+  }
+
+  async deleteUser(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    await this.prisma.user.delete({ where: { id: userId } });
+
+    return { message: 'User deleted successfully', userId, deletedAt: new Date().toISOString() };
   }
 }

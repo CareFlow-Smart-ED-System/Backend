@@ -85,3 +85,25 @@ export class UserResponseDto {
   @ApiProperty({ example: '2026-05-09T00:00:00.000Z', type: String, format: 'date-time' })
   updatedAt: Date;
 }
+
+export class UpdateUserDto {
+  @ApiPropertyOptional({ example: 'Updated Name' })
+  @IsOptional()
+  @IsString()
+  displayName?: string;
+
+  @ApiPropertyOptional({ enum: UserRole })
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
+
+  @ApiPropertyOptional({ example: 'Cardiology' })
+  @IsOptional()
+  @IsString()
+  specialization?: string;
+
+  @ApiPropertyOptional({ example: 'Emergency' })
+  @IsOptional()
+  @IsString()
+  department?: string;
+}

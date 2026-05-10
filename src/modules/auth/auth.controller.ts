@@ -107,7 +107,16 @@ export class AuthController {
   @HttpCode(200)
   @ApiCookieAuth('accessToken')
   @ApiOperation({ summary: 'Invalidate the current session' })
-  @ApiResponse({ status: 200, description: 'Logged out successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Logged out successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Logged out successfully' },
+      },
+    },
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async logout(
     @CurrentUser() user: any,
@@ -123,7 +132,26 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth('accessToken')
   @ApiOperation({ summary: 'Get the authenticated user profile' })
-  @ApiResponse({ status: 200, description: 'Current user profile' })
+  @ApiResponse({
+    status: 200,
+    description: 'Current user profile',
+    schema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string' },
+        displayName: { type: 'string' },
+        email: { type: 'string' },
+        gender: { type: 'string' },
+        role: { type: 'string' },
+        mustChangePassword: { type: 'boolean' },
+        specialization: { type: 'string', nullable: true },
+        department: { type: 'string', nullable: true },
+        dateOfBirth: { type: 'string', format: 'date-time', nullable: true },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getProfile(@CurrentUser() user: any) {
     return this.authService.getProfile(user.sub);
@@ -167,7 +195,19 @@ export class AuthController {
       required: ['userId'],
     },
   })
-  @ApiResponse({ status: 200, description: 'All sessions revoked for the user' })
+  @ApiResponse({
+    status: 200,
+    description: 'All sessions revoked for the user',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'All sessions revoked for user f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   async revokeToken(@Body('userId') userId: string) {
@@ -181,7 +221,27 @@ export class AuthController {
   @ApiCookieAuth('accessToken')
   @ApiOperation({ summary: 'Update the current password' })
   @ApiBody({ type: UpdatePasswordDto })
-  @ApiResponse({ status: 200, description: 'Password updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password updated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Password updated successfully' },
+        accessToken: { type: 'string' },
+        refreshToken: { type: 'string' },
+        user: {
+          type: 'object',
+          properties: {
+            userId: { type: 'string' },
+            displayName: { type: 'string' },
+            role: { type: 'string' },
+            mustChangePassword: { type: 'boolean' },
+          },
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 400, description: 'Passwords do not match' })
   @ApiResponse({ status: 401, description: 'Unauthorized or incorrect current password' })
   async updatePassword(

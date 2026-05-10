@@ -1,64 +1,173 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Put,
   Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
   UseGuards,
-  HttpCode,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiCookieAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  ApiQuery,
+  ApiParam,
+} from '@nestjs/swagger';
 import { BillingService } from './billing.service';
+import { CreateBillingDto } from './dto/create-billing.dto';
+import { UpdateBillingStatusDto } from './dto/update-billing-status.dto';
 import { Roles } from '@common/decorators/roles.decorator';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
+import { BillingStatus, UserRole } from '@prisma/client';
 
 @ApiTags('billing')
 @ApiCookieAuth('accessToken')
-@Controller('api/v1/billing')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('api/v1')
 export class BillingController {
-  constructor(private billingService: BillingService) {}
+  constructor(private readonly billingService: BillingService) {}
 
-  @Post(':caseId')
-  @UseGuards(RolesGuard)
-  @Roles('RECEPTIONIST', 'ADMIN')
-  @HttpCode(201)
-  @ApiOperation({ summary: 'Create a bill for a case' })
-  @ApiResponse({ status: 201, description: 'Bill created successfully' })
-  async createBill(@Param('caseId') caseId: string) {
-    // TODO: Implement create bill
+  @Post('billing')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Create a bill for a completed case' })
+  @ApiBody({ type: CreateBillingDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Bill created successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Bill created successfully' },
+        billId: { type: 'string', example: 'uuid' },
+        caseId: { type: 'string', example: 'uuid' },
+        amount: { type: 'number', example: 150.00 },
+        status: { type: 'string', example: 'PENDING' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Case not completed or bill already exists' })
+  @ApiResponse({ status: 404, description: 'Case not found' })
+  createBill(@Body() dto: CreateBillingDto) {
+    return this.billingService.createBill(dto);
   }
 
-  @Get(':billId')
-  @ApiOperation({ summary: 'Get bill details' })
-  @ApiResponse({ status: 200, description: 'Bill details' })
-  async getBillDetails(@Param('billId') billId: string) {
-    // TODO: Implement get bill details
+  @Get('billing')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get all bills with filtering and pagination' })
+  @ApiQuery({ name: 'status', required: false, enum: BillingStatus, description: 'Filter by billing status' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiResponse({
+    status: 200,
+    description: 'List of bills retrieved',
+    schema: {
+      type: 'object',
+      properties: {
+        total: { type: 'number' },
+        page: { type: 'number' },
+        limit: { type: 'number' },
+        totalPages: { type: 'number' },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              billId: { type: 'string' },
+              caseId: { type: 'string' },
+              patientName: { type: 'string' },
+              amount: { type: 'number' },
+              status: { type: 'string' },
+              createdAt: { type: 'string', format: 'date-time' },
+            },
+          },
+        },
+      },
+    },
+  })
+  getAllBills(
+    @Query('status') status?: BillingStatus,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    return this.billingService.getAllBills(status, Number(page), Number(limit));
   }
 
-  @Put(':billId/payment-status')
-  @UseGuards(RolesGuard)
-  @Roles('RECEPTIONIST', 'ADMIN')
+  @Get('billing/:billId')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get bill details by ID' })
+  @ApiParam({ name: 'billId', type: 'string', description: 'The bill ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Bill details retrieved',
+    schema: {
+      type: 'object',
+      properties: {
+        billId: { type: 'string' },
+        caseId: { type: 'string' },
+        patientName: { type: 'string' },
+        amount: { type: 'number' },
+        status: { type: 'string' },
+        createdAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Bill not found' })
+  getBillById(@Param('billId', ParseUUIDPipe) billId: string) {
+    return this.billingService.getBillById(billId);
+  }
+
+  @Patch('billing/:billId/status')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
   @ApiOperation({ summary: 'Update bill payment status' })
-  @ApiResponse({ status: 200, description: 'Payment status updated successfully' })
-  async updatePaymentStatus(@Param('billId') billId: string) {
-    // TODO: Implement update payment status
+  @ApiParam({ name: 'billId', type: 'string', description: 'The bill ID' })
+  @ApiBody({ type: UpdateBillingStatusDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Bill status updated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Bill status updated successfully' },
+        billId: { type: 'string' },
+        status: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Bill not found' })
+  updateBillStatus(
+    @Param('billId', ParseUUIDPipe) billId: string,
+    @Body() dto: UpdateBillingStatusDto,
+  ) {
+    return this.billingService.updateBillStatus(billId, dto);
   }
 
-  @Get('case/:caseId')
-  @ApiOperation({ summary: 'Get billing records for a case' })
-  @ApiResponse({ status: 200, description: 'Billing records for the case' })
-  async getBillingByCase(@Param('caseId') caseId: string) {
-    // TODO: Implement get billing by case
-  }
-
-  @Get()
-  @UseGuards(RolesGuard)
-  @Roles('RECEPTIONIST', 'ADMIN')
-  @ApiOperation({ summary: 'List bills' })
-  @ApiResponse({ status: 200, description: 'Bills list' })
-  async listBills() {
-    // TODO: Implement list bills
+  @Get('cases/:caseId/billing')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get bill for a specific case' })
+  @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Bill for the case retrieved',
+    schema: {
+      type: 'object',
+      properties: {
+        billId: { type: 'string' },
+        caseId: { type: 'string' },
+        patientName: { type: 'string' },
+        amount: { type: 'number' },
+        status: { type: 'string' },
+        createdAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Bill not found for this case' })
+  getBillByCase(@Param('caseId', ParseUUIDPipe) caseId: string) {
+    return this.billingService.getBillByCase(caseId);
   }
 }

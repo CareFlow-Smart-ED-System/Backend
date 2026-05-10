@@ -9,7 +9,7 @@
   UseGuards,
   HttpCode,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { PatientsService } from './patients.service';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
 import { Roles } from '@common/decorators/roles.decorator';
@@ -34,7 +34,24 @@ export class PatientsController {
   @Post('quick-register')
   @HttpCode(201)
   @ApiOperation({ summary: 'Quick register a new patient' })
-  @ApiResponse({ status: 201, description: 'Patient registered successfully' })
+  @ApiBody({ type: QuickRegisterDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Patient registered successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Patient registered successfully' },
+        patientId: { type: 'string' },
+        firstName: { type: 'string', example: 'Salma' },
+        lastName: { type: 'string', example: 'Ahmed' },
+        displayName: { type: 'string', example: 'Salma Ahmed' },
+        age: { type: 'number', example: 22 },
+        gender: { type: 'string', example: 'FEMALE' },
+        phone: { type: 'string', example: '+201012345678' },
+      },
+    },
+  })
   async quickRegister(@Body() quickRegisterDto: QuickRegisterDto) {
     const result = await this.patientsService.quickRegister(quickRegisterDto);
     return {
@@ -48,7 +65,21 @@ export class PatientsController {
   @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
   @HttpCode(201)
   @ApiOperation({ summary: 'Link an account to a patient profile' })
-  @ApiResponse({ status: 201, description: 'Account linked successfully' })
+  @ApiParam({ name: 'patientId', type: 'string', description: 'The patient ID' })
+  @ApiBody({ type: LinkAccountDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Account linked successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'User account successfully linked to patient' },
+        userId: { type: 'string' },
+        patientId: { type: 'string' },
+        role: { type: 'string', example: 'PATIENT' },
+      },
+    },
+  })
   async linkAccount(
     @Param('patientId') patientId: string,
     @Body() linkAccountDto: LinkAccountDto,
@@ -64,7 +95,23 @@ export class PatientsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST, UserRole.ADMIN)
   @ApiOperation({ summary: 'Get a patient profile' })
-  @ApiResponse({ status: 200, description: 'Patient profile' })
+  @ApiParam({ name: 'patientId', type: 'string', description: 'The patient ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Patient profile retrieved',
+    schema: {
+      type: 'object',
+      properties: {
+        patientId: { type: 'string' },
+        firstName: { type: 'string' },
+        lastName: { type: 'string' },
+        displayName: { type: 'string' },
+        age: { type: 'number' },
+        gender: { type: 'string' },
+        phone: { type: 'string' },
+      },
+    },
+  })
   async getProfile(
     @Param('patientId') patientId: string,
     @CurrentUser() user: any,
@@ -77,7 +124,19 @@ export class PatientsController {
   @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
   @HttpCode(200)
   @ApiOperation({ summary: 'Update a patient profile' })
-  @ApiResponse({ status: 200, description: 'Patient profile updated successfully' })
+  @ApiParam({ name: 'patientId', type: 'string', description: 'The patient ID' })
+  @ApiBody({ type: UpdatePatientDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Patient profile updated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Patient profile updated successfully' },
+        patientId: { type: 'string' },
+      },
+    },
+  })
   async updateProfile(
     @Param('patientId') patientId: string,
     @Body() updatePatientDto: UpdatePatientDto,
@@ -95,7 +154,53 @@ export class PatientsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.DOCTOR, UserRole.NURSE)
   @ApiOperation({ summary: 'Get medical records for a case' })
-  @ApiResponse({ status: 200, description: 'Medical records list' })
+  @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+    description: 'Page number for pagination',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    example: 10,
+    description: 'Records per page',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Medical records list retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        patientId: { type: 'string', example: 'uuid' },
+        total: { type: 'number', example: 5 },
+        page: { type: 'number', example: 1 },
+        limit: { type: 'number', example: 10 },
+        totalPages: { type: 'number', example: 1 },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              recordId: { type: 'string', example: 'uuid' },
+              caseId: { type: 'string', example: 'uuid' },
+              diagnosis: { type: 'string', example: 'Acute appendicitis' },
+              notes: { type: 'string', example: 'Patient presented with severe right lower quadrant pain' },
+              chronicDiseases: { type: 'string', example: 'Type 2 Diabetes', nullable: true },
+              familyHistory: { type: 'string', example: 'Hypertension, Stroke', nullable: true },
+              createdAt: { type: 'string', format: 'date-time', example: '2026-05-10T12:00:00Z' },
+              updatedAt: { type: 'string', format: 'date-time', example: '2026-05-10T12:00:00Z' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Case not found' })
+  @ApiResponse({ status: 403, description: 'Unauthorized access to this case' })
   async getMedicalRecords(
     @Param('caseId') caseId: string,
     @Query() queryDto: GetMedicalRecordsQueryDto,
@@ -109,7 +214,21 @@ export class PatientsController {
   @Roles(UserRole.DOCTOR)
   @HttpCode(201)
   @ApiOperation({ summary: 'Create a medical record for a case' })
-  @ApiResponse({ status: 201, description: 'Medical record created successfully' })
+  @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
+  @ApiBody({ type: CreateMedicalRecordDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Medical record created successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Medical record created successfully' },
+        recordId: { type: 'string' },
+        patientId: { type: 'string' },
+        caseId: { type: 'string' },
+      },
+    },
+  })
   async createMedicalRecord(
     @Param('caseId') caseId: string,
     @Body() createMedicalRecordDto: CreateMedicalRecordDto,
@@ -131,7 +250,21 @@ export class PatientsController {
   @Roles(UserRole.DOCTOR)
   @HttpCode(200)
   @ApiOperation({ summary: 'Update a medical record' })
-  @ApiResponse({ status: 200, description: 'Medical record updated successfully' })
+  @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
+  @ApiParam({ name: 'recordId', type: 'string', description: 'The medical record ID' })
+  @ApiBody({ type: UpdateMedicalRecordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Medical record updated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Medical record updated successfully' },
+        recordId: { type: 'string' },
+        caseId: { type: 'string' },
+      },
+    },
+  })
   async updateMedicalRecord(
     @Param('caseId') caseId: string,
     @Param('recordId') recordId: string,

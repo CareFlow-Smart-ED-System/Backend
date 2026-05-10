@@ -1,9 +1,23 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { PrescribeMedicationDto } from './dto/prescribe-medication.dto';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { NotificationsService } from '@modules/notifications/notifications.service';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+
 @Injectable()
 export class DoctorsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
+
+  private async getDoctorId(user: any): Promise<string> {
+    const profile = await this.prisma.user.findUnique({
+      where: { id: user.sub },
+      include: { doctor: { select: { id: true } } },
+    });
+    if (!profile?.doctor?.id) throw new NotFoundException('Doctor profile not found');
+    return profile.doctor.id;
+  }
 
   async listDoctors(page: number = 1, limit: number = 20) {
     const skip = (page - 1) * limit;
@@ -28,7 +42,8 @@ export class DoctorsService {
     };
   }
 
-  async getAssignedCases(doctorId: number, page: number = 1, limit: number = 20, status?: string) {
+  async getAssignedCases(user: any, page: number = 1, limit: number = 20, status?: string) {
+    const doctorId = await this.getDoctorId(user);
     const skip = (page - 1) * limit;
     const where: any = { doctorId };
     if (status) where.case = { status };
@@ -45,9 +60,7 @@ export class DoctorsService {
             },
           },
         },
-        orderBy: [
-          { case: { arrivalTime: 'asc' } },
-        ],
+        orderBy: [{ case: { arrivalTime: 'asc' } }],
       }),
       this.prisma.caseDoctor.count({ where }),
     ]);
@@ -59,15 +72,18 @@ export class DoctorsService {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
-      data: assignments.map((a) => ({
-        caseId: a.case.id,
-        patientName: a.case.patient.user.displayName,
-        patientId: a.case.patientId,
-        severity: a.case.triage?.severity ?? null,
-        priorityScore: severityScore(a.case.triage?.severity),
-        status: a.case.status,
-        arrivalTime: a.case.arrivalTime,
-      })),
+      data: assignments.map((a) => {
+        const triage = Array.isArray(a.case.triage) ? a.case.triage[0] : a.case.triage;
+        return {
+          caseId: a.case.id,
+          patientName: a.case.patient.user.displayName,
+          patientId: a.case.patientId,
+          severity: triage?.severity ?? null,
+          priorityScore: severityScore(triage?.severity),
+          status: a.case.status,
+          arrivalTime: a.case.arrivalTime,
+        };
+      }),
     };
   }
 
@@ -96,7 +112,7 @@ export class DoctorsService {
   }
 
   async getImagingReports(caseId: string, page: number = 1, limit: number = 10) {
-     const skip = (page - 1) * limit;
+    const skip = (page - 1) * limit;
     const exists = await this.prisma.emergencyCase.findUnique({ where: { id: caseId } });
     if (!exists) throw new NotFoundException('Case not found');
     const [reports, total] = await Promise.all([
@@ -117,20 +133,25 @@ export class DoctorsService {
         status: 'AVAILABLE',
       })),
     };
-
   }
 
-  async prescribeMedication(caseId: string, doctorId: number, dto: PrescribeMedicationDto) {
+  async prescribeMedication(caseId: string, user: any, dto: PrescribeMedicationDto) {
+    const doctorId = await this.getDoctorId(user);
     const exists = await this.prisma.emergencyCase.findUnique({ where: { id: caseId } });
     if (!exists) throw new NotFoundException('Case not found');
     const medication = await this.prisma.medication.create({
-    data: {
+      data: {
+        caseId,
+        doctorId,
+        name: dto.name,
+        dosage: dto.dosage,
+      },
+    });
+    await this.notificationsService.notifyNewPrescription({
       caseId,
-      doctorId: String(doctorId),  
-      name: dto.name,
-      dosage: dto.dosage,
-    },
-  });
+      message: 'New medication ordered for the case',
+      medicationId: medication.id,
+    });
     return {
       message: 'Medication prescribed successfully',
       medication: {
@@ -142,4 +163,60 @@ export class DoctorsService {
       },
     };
   }
+  async getMedications(
+  caseId: string,
+  user: any,
+  page: number = 1,
+  limit: number = 20,
+) {
+  const emergencyCase = await this.prisma.emergencyCase.findUnique({
+    where: { id: caseId },
+    include: { caseDoctor: true },
+  });
+  if (!emergencyCase) throw new NotFoundException('Case not found');
+
+  if (user.role === 'DOCTOR') {
+    const doctorId = await this.getDoctorId(user);
+    const isAssigned = emergencyCase.caseDoctor.some(
+      (cd) => cd.doctorId === doctorId,
+    );
+    if (!isAssigned) {
+      throw new ForbiddenException('Doctor is not assigned to this case');
+    }
+  } else if (user.role === 'NURSE') {
+    const isActive =
+      emergencyCase.status === 'WAITING' ||
+      emergencyCase.status === 'UNDER_TREATMENT';
+    if (!isActive) {
+      throw new ForbiddenException('Can only view medications for active cases');
+    }
+  }
+
+  const skip = (page - 1) * limit;
+  const [medications, total] = await Promise.all([
+    this.prisma.medication.findMany({
+      where: { caseId },
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'asc' },
+    }),
+    this.prisma.medication.count({ where: { caseId } }),
+  ]);
+
+  return {
+    caseId,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    data: medications.map((m) => ({
+      id: m.id,
+      caseId: m.caseId,
+      name: m.name,
+      dosage: m.dosage,
+      prescribedBy: m.doctorId,
+      createdAt: m.createdAt,
+    })),
+  };
+}
 }

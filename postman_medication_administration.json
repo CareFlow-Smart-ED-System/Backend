@@ -1,0 +1,353 @@
+{
+  "info": {
+    "_postman_id": "medication-administration-tests",
+    "name": "Medication Administration API Tests",
+    "description": "Tests for the medication administration endpoint",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Login (Get Token)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    pm.environment.set('token', response.access_token);",
+              "    pm.environment.set('userId', response.id);",
+              "    pm.test('Login successful', function() {",
+              "        pm.expect(response).to.have.property('access_token');",
+              "    });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"nurse@careflow.com\", \"password\": \"NursePass123!\"}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/v1/auth/login",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "v1", "auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "2. Create Emergency Case",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    const response = pm.response.json();",
+              "    pm.environment.set('caseId', response.data.id);",
+              "    pm.test('Case created successfully', function() {",
+              "        pm.expect(response.data).to.have.property('id');",
+              "    });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"patientId\": \"patient-uuid-here\", \"description\": \"Emergency case for medication test\"}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/v1/cases",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "v1", "cases"]
+        }
+      }
+    },
+    {
+      "name": "3. Prescribe Medication",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200 || pm.response.code === 201) {",
+              "    const response = pm.response.json();",
+              "    pm.environment.set('medicationId', response.data.id);",
+              "    pm.test('Medication prescribed successfully', function() {",
+              "        pm.expect(response.data).to.have.property('id');",
+              "    });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"caseId\": \"{{caseId}}\", \"name\": \"Aspirin\", \"dosage\": \"500mg\", \"frequency\": \"twice daily\"}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/v1/doctors/prescribe",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "v1", "doctors", "prescribe"]
+        }
+      }
+    },
+    {
+      "name": "4. Administer Medication (POST) ✅",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function() {",
+              "    pm.expect(pm.response.code).to.equal(200);",
+              "});",
+              "",
+              "pm.test('Response has correct structure', function() {",
+              "    const response = pm.response.json();",
+              "    pm.expect(response).to.have.property('message').that.equals('Medication administration recorded');",
+              "    pm.expect(response).to.have.property('data');",
+              "});",
+              "",
+              "pm.test('Data contains required fields', function() {",
+              "    const response = pm.response.json();",
+              "    pm.expect(response.data).to.have.property('caseId');",
+              "    pm.expect(response.data).to.have.property('medicationId');",
+              "    pm.expect(response.data).to.have.property('administeredBy');",
+              "    pm.expect(response.data).to.have.property('administeredAt');",
+              "});",
+              "",
+              "pm.test('administeredBy is a valid UUID', function() {",
+              "    const response = pm.response.json();",
+              "    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;",
+              "    pm.expect(response.data.administeredBy).to.match(uuidRegex);",
+              "});",
+              "",
+              "pm.test('administeredAt is in YYYY-MM-DD format', function() {",
+              "    const response = pm.response.json();",
+              "    const dateRegex = /^\\d{4}-\\d{2}-\\d{2}$/;",
+              "    pm.expect(response.data.administeredAt).to.match(dateRegex);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"caseId\": \"{{caseId}}\", \"medicationId\": \"{{medicationId}}\"}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/v1/nurses/medications/administrations",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "v1", "nurses", "medications", "administrations"]
+        }
+      }
+    },
+    {
+      "name": "5. Error Test - Non-existent Case",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 404', function() {",
+              "    pm.expect(pm.response.code).to.equal(404);",
+              "});",
+              "",
+              "pm.test('Response contains error message', function() {",
+              "    const response = pm.response.json();",
+              "    pm.expect(response).to.have.property('message');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"caseId\": \"invalid-case-id\", \"medicationId\": \"invalid-med-id\"}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/v1/nurses/medications/administrations",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "v1", "nurses", "medications", "administrations"]
+        }
+      }
+    },
+    {
+      "name": "6. Error Test - Medication Not Found",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 404', function() {",
+              "    pm.expect(pm.response.code).to.equal(404);",
+              "});",
+              "",
+              "pm.test('Error message is Medication not found', function() {",
+              "    const response = pm.response.json();",
+              "    pm.expect(response.message).to.include('Medication');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"caseId\": \"{{caseId}}\", \"medicationId\": \"00000000-0000-0000-0000-000000000000\"}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/v1/nurses/medications/administrations",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "v1", "nurses", "medications", "administrations"]
+        }
+      }
+    },
+    {
+      "name": "7. Error Test - Missing Authorization",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 401 or 403', function() {",
+              "    pm.expect([401, 403]).to.include(pm.response.code);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"caseId\": \"{{caseId}}\", \"medicationId\": \"{{medicationId}}\"}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/v1/nurses/medications/administrations",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "v1", "nurses", "medications", "administrations"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "caseId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "medicationId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
