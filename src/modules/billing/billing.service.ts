@@ -172,4 +172,35 @@ export class BillingService {
       })),
     };
   }
+
+  // ── 6. GET COMPLETED CASES WITHOUT BILLING ────────────────────────────────
+  async getUnbilledCompletedCases() {
+    const cases = await this.prisma.emergencyCase.findMany({
+      where: {
+        status: CaseStatus.COMPLETED,
+        billing: null,
+      },
+      orderBy: { arrivalTime: 'asc' },
+      include: {
+        patient: true,
+        triage: true,
+      },
+    });
+
+    return {
+      total: cases.length,
+      data: cases.map((record) => {
+        const triage = Array.isArray(record.triage) ? record.triage[0] : record.triage;
+
+        return {
+          caseId: record.id,
+          patientId: record.patientId,
+          patientName: `${record.patient.firstName} ${record.patient.lastName}`,
+          severity: triage?.severity ?? null,
+          arrivalTime: record.arrivalTime,
+          status: record.status,
+        };
+      }),
+    };
+  }
 }

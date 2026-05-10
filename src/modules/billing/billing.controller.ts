@@ -98,6 +98,37 @@ export class BillingController {
     return this.billingService.getAllBills(status, Number(page), Number(limit));
   }
 
+  @Get('billing/unbilled-completed-cases')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get completed cases that do not yet have billing' })
+  @ApiResponse({
+    status: 200,
+    description: 'Completed cases without billing retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        total: { type: 'number', example: 2 },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              caseId: { type: 'string', example: 'uuid' },
+              patientId: { type: 'string', example: 'uuid' },
+              patientName: { type: 'string', example: 'John Doe' },
+              severity: { type: 'string', example: 'URGENT', nullable: true },
+              arrivalTime: { type: 'string', format: 'date-time', example: '2026-05-10T12:00:00Z' },
+              status: { type: 'string', example: 'COMPLETED' },
+            },
+          },
+        },
+      },
+    },
+  })
+  getUnbilledCompletedCases() {
+    return this.billingService.getUnbilledCompletedCases();
+  }
+
   @Get('billing/:billId')
   @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
   @ApiOperation({ summary: 'Get bill details by ID' })
