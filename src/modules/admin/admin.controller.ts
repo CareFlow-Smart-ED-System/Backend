@@ -17,6 +17,7 @@ import {
   ApiCookieAuth,
   ApiBody,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { CreateStaffUserDto, ResetPasswordDto, UpdateUserDto } from './dto/create-staff-user.dto';
@@ -36,6 +37,9 @@ export class AdminController {
 
   @Get('users')
   @ApiOperation({ summary: 'List all users (ADMIN only)' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiQuery({ name: 'role', required: false, type: String, description: 'Filter by role' })
   @ApiResponse({
     status: 200,
     description: 'List of all users',
@@ -192,6 +196,10 @@ export class AdminController {
 
   @Get('audit-logs')
   @ApiOperation({ summary: 'Get audit logs (ADMIN only)' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 50 })
+  @ApiQuery({ name: 'action', required: false, type: String, description: 'Filter by action type' })
+  @ApiQuery({ name: 'userId', required: false, type: String, description: 'Filter by user ID' })
   @ApiResponse({
     status: 200,
     description: 'Audit logs',
@@ -223,7 +231,13 @@ export class AdminController {
   @Patch('users/:userId')
   @HttpCode(200)
   @ApiOperation({ summary: 'Update user profile or role (ADMIN only)' })
-  @ApiParam({ name: 'userId', type: 'string' })
+  @ApiParam({ name: 'userId', type: 'string', description: 'The user ID' })
+  @ApiBody({ type: UpdateUserDto })
+  @ApiResponse({ status: 200, description: 'User updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async updateUser(@Param('userId') userId: string, @Body() dto: UpdateUserDto) {
     return this.adminService.updateUser(userId, dto);
   }
@@ -231,7 +245,22 @@ export class AdminController {
   @Delete('users/:userId')
   @HttpCode(200)
   @ApiOperation({ summary: 'Delete a user (ADMIN only)' })
-  @ApiParam({ name: 'userId', type: 'string' })
+  @ApiParam({ name: 'userId', type: 'string', description: 'The user ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'User deleted successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'User deleted successfully' },
+        userId: { type: 'string' },
+        deletedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async deleteUser(@Param('userId') userId: string) {
     return this.adminService.deleteUser(userId);
   }

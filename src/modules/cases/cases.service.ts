@@ -540,4 +540,46 @@ async assignDoctor(caseId: string, dto: AssignDoctorDto, currentUser: { sub: str
     role: assignment.role,
   };
 }
+
+async administerMedication(caseId: string, dto: any, currentUser: any) {
+  // Verify case exists
+  const emergencyCase = await this.prisma.emergencyCase.findUnique({
+    where: { id: caseId },
+  });
+  if (!emergencyCase) throw new NotFoundException('Case not found');
+
+  // Verify medication exists and belongs to case
+  const medication = await this.prisma.medication.findUnique({
+    where: { id: dto.medicationId },
+  });
+  if (!medication) throw new NotFoundException('Medication not found');
+  if (medication.caseId !== caseId) throw new NotFoundException('Medication does not belong to this case');
+
+  // Get nurse from current user
+  const nurse = await this.prisma.nurse.findUnique({
+    where: { userId: currentUser?.sub ?? currentUser?.id },
+  });
+  if (!nurse) throw new NotFoundException('Nurse profile not found');
+
+  // Create medication administration record
+  const administration = await this.prisma.medicationAdministration.create({
+    data: {
+      medicationId: dto.medicationId,
+      administeredAt: new Date(),
+    },
+  });
+
+  // Format the date as YYYY-MM-DD
+  const administeredAtDate = administration.administeredAt.toISOString().split('T')[0];
+
+  return {
+    message: 'Medication administration recorded',
+    data: {
+      caseId: medication.caseId,
+      medicationId: dto.medicationId,
+      administeredBy: nurse.id,
+      administeredAt: administeredAtDate,
+    },
+  };
+}
 }
