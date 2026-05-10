@@ -1,46 +1,73 @@
 import * as argon2 from 'argon2';
+import * as dotenv from 'dotenv';
 import { Pool } from 'pg';
 
+// Load environment variables
+dotenv.config({ path: '.env' });
+
 async function main() {
+  const DATABASE_URL = process.env.DATABASE_URL;
+
+  if (!DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set');
+  }
+
+  const pool = new Pool({
+    connectionString: DATABASE_URL,
+  });
+
   try {
-    const pool = new Pool({
-      user: 'postgres',
-      host: '127.0.0.1',
-      database: 'ed_system',
-      port: 5432,
-    });
+    console.log('🌱 Starting database seed...');
 
+    // Hash the password
     const passwordHash = await argon2.hash('AdminPass123!');
-    const adminId = 'admin-' + Date.now();
     const now = new Date().toISOString();
+    const adminId = 'admin-' + Date.now();
 
-    const query = `
+    // Check if admin already exists
+    const checkQuery = 'SELECT id, email FROM "User" WHERE email = $1';
+    const checkResult = await pool.query(checkQuery, ['admin@careflow.com']);
+
+    if (checkResult.rows.length > 0) {
+      console.log('✓ Admin user already exists');
+      console.log(`  Email: ${checkResult.rows[0].email}`);
+      console.log(`  ID: ${checkResult.rows[0].id}`);
+      return;
+    }
+
+    // Insert admin user
+    const insertQuery = `
       INSERT INTO "User" (id, email, "passwordHash", "displayName", role, "createdAt", "updatedAt", "mustChangePassword", "failedLoginAttempts")
       VALUES ($1, $2, $3, $4, $5, $6, $7, false, 0)
-      ON CONFLICT (email) DO NOTHING
-      RETURNING id, email;
+      RETURNING id, email, "displayName", role
     `;
 
-    const result = await pool.query(query, [
+    const result = await pool.query(insertQuery, [
       adminId,
       'admin@careflow.com',
       passwordHash,
-      'System Admin',
+      'System Administrator',
       'ADMIN',
       now,
       now,
     ]);
 
     if (result.rows.length > 0) {
-      console.log('✅ Admin seeded:', result.rows[0].email);
-    } else {
-      console.log('ℹ️  Admin already exists');
+      const admin = result.rows[0];
+      console.log('✅ Admin user created successfully:');
+      console.log(`   Email: ${admin.email}`);
+      console.log(`   Display Name: ${admin.displayName}`);
+      console.log(`   Role: ${admin.role}`);
+      console.log(`   ID: ${admin.id}`);
+      console.log('\n📋 Credentials for testing:');
+      console.log('   Email: admin@careflow.com');
+      console.log('   Password: AdminPass123!');
     }
-
-    await pool.end();
   } catch (error) {
-    console.error('❌ Seeding failed:', error);
-    process.exit(1);
+    console.error('❌ Error seeding database:', error);
+    throw error;
+  } finally {
+    await pool.end();
   }
 }
 

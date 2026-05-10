@@ -8,6 +8,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { PasswordService } from '@common/password.service';
 import { UserRole } from '@prisma/client';
 import { CreateStaffUserDto, ResetPasswordDto } from './dto/create-staff-user.dto';
+import { CreateAuditLogDto } from './dto/create-audit-log.dto';
 
 @Injectable()
 export class AdminService {
@@ -228,6 +229,31 @@ export class AdminService {
         details: l.details,
         timestamp: l.timestamp,
       })),
+    };
+  }
+
+  async createAuditLog(dto: CreateAuditLogDto) {
+    const { actionType, userId, targetId, details } = dto as any;
+
+    const created = await this.prisma.auditLog.create({
+      data: {
+        actionType,
+        userId,
+        targetId: targetId ?? null,
+        details: details ?? null,
+      },
+    });
+
+    return {
+      message: 'Audit log created',
+      data: {
+        id: created.id,
+        actionType: created.actionType,
+        userId: created.userId,
+        targetId: created.targetId,
+        details: created.details,
+        timestamp: created.timestamp,
+      },
     };
   }
 

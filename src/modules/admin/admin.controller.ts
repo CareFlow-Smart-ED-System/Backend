@@ -21,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { CreateStaffUserDto, ResetPasswordDto, UpdateUserDto } from './dto/create-staff-user.dto';
+import { CreateAuditLogDto } from './dto/create-audit-log.dto';
 import { ListUsersQueryDto } from './dto/list-users.query';
 import { GetAuditLogsQueryDto } from './dto/audit-logs.query';
 import { Roles } from '@common/decorators/roles.decorator';
@@ -226,6 +227,35 @@ export class AdminController {
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   async getAuditLogs(@Query() query: GetAuditLogsQueryDto) {
     return this.adminService.getAuditLogs(query);
+  }
+
+  @Post('audit-logs')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Create an audit log (ADMIN only)' })
+  @ApiBody({ type: CreateAuditLogDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Audit log created',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Audit log created' },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            actionType: { type: 'string' },
+            userId: { type: 'string' },
+            targetId: { type: 'string', nullable: true },
+            details: { type: 'string', nullable: true },
+            timestamp: { type: 'string' },
+          },
+        },
+      },
+    },
+  })
+  async createAuditLog(@Body() dto: CreateAuditLogDto) {
+    return this.adminService.createAuditLog(dto);
   }
 
   @Patch('users/:userId')
