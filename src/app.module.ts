@@ -12,6 +12,8 @@ import { PatientsModule } from '@modules/patients/patients.module';
 import { TriageModule } from '@modules/triage/triage.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { CasesModule } from '@modules/cases/cases.module';
+import { AppointmentsModule } from '@modules/appointments/appointments.module';
+import { BillingModule } from '@modules/billing/billing.module'; 
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { CasesModule } from '@modules/cases/cases.module';
     CasesModule,
     PatientsModule,
     NotificationsModule,
+    AppointmentsModule,
+    BillingModule
   ],
   controllers: [AppController],
   providers: [AppService],

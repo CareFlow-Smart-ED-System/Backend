@@ -106,7 +106,7 @@ model EmergencyCase {
   notifications  Notification[]
   notes          NurseNote[]
   timelineEvents TimelineEvent[]
-  triage         Triage?
+  triage         Triage[]
   vitalSigns     VitalSigns[]
 
   @@index([patientId])
@@ -116,7 +116,7 @@ model EmergencyCase {
 
 model Triage {
   id               String         @id @default(uuid())
-  caseId           String         @unique
+  caseId           String         
   severity         TriageSeverity
   temperature      Float?
   systolic         Int?

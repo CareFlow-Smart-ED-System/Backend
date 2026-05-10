@@ -81,7 +81,7 @@ export class AuthService {
     });
 
     // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.role, {
+    const tokens = await this.generateTokens(user.id, user.email, user.role, user.displayName, {
       revokeExistingTokens: true,
     });
 
@@ -193,7 +193,7 @@ export class AuthService {
       }
 
       // Generate new tokens and rotate existing refresh tokens
-      const tokens = await this.generateTokens(user.id, user.email, user.role, {
+      const tokens = await this.generateTokens(user.id, user.email, user.role, user.displayName, {
         revokeExistingTokens: true,
       });
 
@@ -261,6 +261,7 @@ export class AuthService {
       updatedUser.id,
       updatedUser.email,
       updatedUser.role,
+      updatedUser.displayName,
       { revokeExistingTokens: true },
     );
 
@@ -280,6 +281,7 @@ export class AuthService {
     userId: string,
     email: string,
     role: string,
+    displayName: string,
     options?: { revokeExistingTokens?: boolean },
   ): Promise<TokenResponseDto> {
     if (options?.revokeExistingTokens) {
@@ -300,6 +302,7 @@ export class AuthService {
         sub: userId,
         email,
         role,
+        displayName,
       },
       {
         expiresIn: this.configService.get('JWT_EXPIRATION', '15m'),
