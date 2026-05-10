@@ -195,10 +195,10 @@ export class BillingService {
         return {
           caseId: record.id,
           patientId: record.patientId,
-          patientName: `${record.patient.firstName} ${record.patient.lastName}`,
+          patientName: `${record.patient.firstName} ${record.patient.lastName}`.trim(),
           severity: triage?.severity ?? null,
-          arrivalTime: record.arrivalTime,
-          status: record.status,
+          arrivalTime: record.arrivalTime.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+          status: 'COMPLETED',
         };
       }),
     };
