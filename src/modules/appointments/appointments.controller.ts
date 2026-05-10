@@ -1,55 +1,59 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Put,
   Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Request,
   UseGuards,
-  HttpCode,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
+import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { Roles } from '@common/decorators/roles.decorator';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
-import { CurrentUser } from '@common/decorators/current-user.decorator';
+import { AppointmentStatus, UserRole } from '@prisma/client';
 
-@ApiTags('appointments')
-@ApiCookieAuth('accessToken')
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/v1/appointments')
-@UseGuards(JwtAuthGuard)
 export class AppointmentsController {
-  constructor(private appointmentsService: AppointmentsService) {}
+  constructor(private readonly appointmentsService: AppointmentsService) {}
 
+  // POST /api/v1/appointments — Receptionist, Admin
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles('PATIENT', 'RECEPTIONIST', 'ADMIN')
-  @HttpCode(201)
-  @ApiOperation({ summary: 'Book a new appointment' })
-  @ApiBody({ schema: { type: 'object', properties: { doctorId: { type: 'string' }, appointmentDate: { type: 'string', format: 'date-time' }, reason: { type: 'string' } }, required: ['doctorId', 'appointmentDate'] } })
-  @ApiResponse({ status: 201, description: 'Appointment booked successfully' })
-  async bookAppointment() {
-    // TODO: Implement book appointment
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  createAppointment(@Body() dto: CreateAppointmentDto) {
+    return this.appointmentsService.createAppointment(dto);
   }
 
+  // GET /api/v1/appointments — Doctor, Receptionist, Admin
   @Get()
-  @ApiOperation({ summary: 'List appointments for the current user' })
-  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
-  @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by status (PENDING, CONFIRMED, COMPLETED, CANCELLED)' })
-  @ApiResponse({ status: 200, description: 'Appointments list retrieved' })
-  async listAppointments(@CurrentUser() user: any) {
-    // TODO: Implement list appointments
+  @Roles(UserRole.DOCTOR, UserRole.RECEPTIONIST, UserRole.ADMIN)
+  getAppointments(
+    @Request() req,
+    @Query('status') status?: AppointmentStatus,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    return this.appointmentsService.getAppointments(
+      req.user,
+      status,
+      Number(page),
+      Number(limit),
+    );
   }
 
-  @Put(':appointmentId')
-  @UseGuards(RolesGuard)
-  @Roles('PATIENT', 'DOCTOR', 'RECEPTIONIST', 'ADMIN')
-  @ApiOperation({ summary: 'Update an appointment' })
-  @ApiParam({ name: 'appointmentId', type: 'string', description: 'The appointment ID' })
-  @ApiBody({ schema: { type: 'object', properties: { appointmentDate: { type: 'string', format: 'date-time' }, reason: { type: 'string' }, status: { type: 'string', enum: ['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'] } } } })
-  @ApiResponse({ status: 200, description: 'Appointment updated successfully' })
-  async updateAppointment(@Param('appointmentId') appointmentId: string) {
-    // TODO: Implement update appointment
+  // PATCH /api/v1/appointments/:id — Receptionist, Admin
+  @Patch(':appointmentId')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  updateAppointment(
+    @Param('appointmentId', ParseUUIDPipe) appointmentId: string,
+    @Body() dto: UpdateAppointmentDto,
+  ) {
+    return this.appointmentsService.updateAppointment(appointmentId, dto);
   }
 }

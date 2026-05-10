@@ -1,76 +1,66 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Put,
   Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
   UseGuards,
-  HttpCode,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { BillingService } from './billing.service';
+import { CreateBillingDto } from './dto/create-billing.dto';
+import { UpdateBillingStatusDto } from './dto/update-billing-status.dto';
 import { Roles } from '@common/decorators/roles.decorator';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
+import { BillingStatus, UserRole } from '@prisma/client';
 
-@ApiTags('billing')
-@ApiCookieAuth('accessToken')
-@Controller('api/v1/billing')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('api/v1')
 export class BillingController {
-  constructor(private billingService: BillingService) {}
+  constructor(private readonly billingService: BillingService) {}
 
-  @Post(':caseId')
-  @UseGuards(RolesGuard)
-  @Roles('RECEPTIONIST', 'ADMIN')
-  @HttpCode(201)
-  @ApiOperation({ summary: 'Create a bill for a case' })
-  @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
-  @ApiResponse({ status: 201, description: 'Bill created successfully' })
-  @ApiResponse({ status: 404, description: 'Case not found' })
-  async createBill(@Param('caseId') caseId: string) {
-    // TODO: Implement create bill
+  // POST /api/v1/billing
+  @Post('billing')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  createBill(@Body() dto: CreateBillingDto) {
+    return this.billingService.createBill(dto);
   }
 
-  @Get(':billId')
-  @ApiOperation({ summary: 'Get bill details' })
-  @ApiParam({ name: 'billId', type: 'string', description: 'The bill ID' })
-  @ApiResponse({ status: 200, description: 'Bill details retrieved' })
-  @ApiResponse({ status: 404, description: 'Bill not found' })
-  async getBillDetails(@Param('billId') billId: string) {
-    // TODO: Implement get bill details
+  // GET /api/v1/billing
+  @Get('billing')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  getAllBills(
+    @Query('status') status?: BillingStatus,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    return this.billingService.getAllBills(status, Number(page), Number(limit));
   }
 
-  @Put(':billId/payment-status')
-  @UseGuards(RolesGuard)
-  @Roles('RECEPTIONIST', 'ADMIN')
-  @ApiOperation({ summary: 'Update bill payment status' })
-  @ApiParam({ name: 'billId', type: 'string', description: 'The bill ID' })
-  @ApiBody({ schema: { type: 'object', properties: { status: { type: 'string', enum: ['PENDING', 'PAID', 'OVERDUE', 'PARTIALLY_PAID'] }, paymentMethod: { type: 'string' }, paidAmount: { type: 'number' } }, required: ['status'] } })
-  @ApiResponse({ status: 200, description: 'Payment status updated successfully' })
-  @ApiResponse({ status: 404, description: 'Bill not found' })
-  async updatePaymentStatus(@Param('billId') billId: string) {
-    // TODO: Implement update payment status
+  // GET /api/v1/billing/:billId
+  @Get('billing/:billId')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  getBillById(@Param('billId', ParseUUIDPipe) billId: string) {
+    return this.billingService.getBillById(billId);
   }
 
-  @Get('case/:caseId')
-  @ApiOperation({ summary: 'Get billing records for a case' })
-  @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
-  @ApiResponse({ status: 200, description: 'Billing records retrieved' })
-  @ApiResponse({ status: 404, description: 'Case not found' })
-  async getBillingByCase(@Param('caseId') caseId: string) {
-    // TODO: Implement get billing by case
+  // PATCH /api/v1/billing/:billId/status
+  @Patch('billing/:billId/status')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  updateBillStatus(
+    @Param('billId', ParseUUIDPipe) billId: string,
+    @Body() dto: UpdateBillingStatusDto,
+  ) {
+    return this.billingService.updateBillStatus(billId, dto);
   }
 
-  @Get()
-  @UseGuards(RolesGuard)
-  @Roles('RECEPTIONIST', 'ADMIN')
-  @ApiOperation({ summary: 'List all bills' })
-  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
-  @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by payment status' })
-  @ApiResponse({ status: 200, description: 'Bills list retrieved' })
-  async listBills() {
-    // TODO: Implement list bills
+  // GET /api/v1/cases/:caseId/billing
+  @Get('cases/:caseId/billing')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  getBillByCase(@Param('caseId', ParseUUIDPipe) caseId: string) {
+    return this.billingService.getBillByCase(caseId);
   }
 }
