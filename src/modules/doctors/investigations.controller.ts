@@ -79,7 +79,7 @@ export class InvestigationsController {
 
   @Get('doctors/cases/:caseId/lab-results')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.DOCTOR, UserRole.NURSE)
+  @Roles(UserRole.DOCTOR, UserRole.NURSE, UserRole.LAB_STAFF)
   @ApiOperation({ summary: 'Get lab results for a case' })
   @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
@@ -98,7 +98,7 @@ export class InvestigationsController {
 
   @Get('doctors/cases/:caseId/imaging')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.DOCTOR, UserRole.NURSE)
+  @Roles(UserRole.DOCTOR, UserRole.NURSE, UserRole.RADIOLOGIST)
   @ApiOperation({ summary: 'Get imaging reports for a case' })
   @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
