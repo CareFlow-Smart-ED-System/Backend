@@ -40,13 +40,13 @@ export class DoctorsController {
   @Get('me/cases')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('DOCTOR')
-  @ApiOperation({ summary: 'Get cases assigned to the current doctor' })
-  @ApiResponse({ status: 200, description: 'Assigned cases list' })
-  async getAssignedCases(@CurrentUser() user: any,
-  @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-  @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
-  @Query('status') status?: string,) {
-      return this.doctorsService.getAssignedCases(user.doctorId, page, limit, status);  
+  async getAssignedCases(
+    @CurrentUser() user: any,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('status') status?: string,
+  ) {
+    return this.doctorsService.getAssignedCases(user, page, limit, status);
   }
 
   @Get('cases/:caseId/lab-results')
@@ -80,6 +80,6 @@ export class DoctorsController {
   async prescribeMedication(@Param('caseId') caseId: string,
     @Body() dto: PrescribeMedicationDto,      
     @CurrentUser() user: any,) {
-    return this.doctorsService.prescribeMedication(caseId, user.doctorId, dto);
+    return this.doctorsService.prescribeMedication(caseId, user, dto);
   }
 }

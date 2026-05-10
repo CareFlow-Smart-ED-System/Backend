@@ -1,6 +1,6 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, UserRole } from '@prisma/client';
 import { NotificationsGateway } from './notifications.gateway';
 
 type CreateNotificationInput = {
@@ -35,6 +35,25 @@ export class NotificationsService {
         }),
       ),
     );
+  }
+
+  private async getUserIdsByRole(role: UserRole) {
+    const users = await this.prisma.user.findMany({
+      where: { role },
+      select: { id: true },
+    });
+    return users.map((user) => user.id);
+  }
+
+  private async getAssignedDoctorUserIds(caseId: string) {
+    const assignments = await this.prisma.caseDoctor.findMany({
+      where: { caseId },
+      include: { doctor: { include: { user: true } } },
+    });
+
+    return assignments
+      .map((assignment) => assignment.doctor.user.id)
+      .filter((userId): userId is string => Boolean(userId));
   }
 
   async getNotifications(
@@ -149,6 +168,16 @@ export class NotificationsService {
   }
 
   async notifyCriticalAlert(payload: any) {
+    const doctorUserIds = await this.getUserIdsByRole(UserRole.DOCTOR);
+
+    if (doctorUserIds.length > 0) {
+      await this.createNotificationsForUsers(doctorUserIds, {
+        caseId: payload.caseId ?? null,
+        message: payload.message,
+        type: NotificationType.CRITICAL_ALERT,
+      });
+    }
+
     this.notificationsGateway.notifyCriticalAlert(payload);
   }
 
@@ -163,6 +192,16 @@ export class NotificationsService {
   }
 
   async notifyNewPrescription(payload: any) {
+    const nurseUserIds = await this.getUserIdsByRole(UserRole.NURSE);
+
+    if (nurseUserIds.length > 0) {
+      await this.createNotificationsForUsers(nurseUserIds, {
+        caseId: payload.caseId ?? null,
+        message: payload.message,
+        type: NotificationType.NEW_PRESCRIPTION,
+      });
+    }
+
     this.notificationsGateway.notifyNewPrescription(payload);
   }
 
@@ -185,5 +224,9 @@ export class NotificationsService {
     });
 
     this.notificationsGateway.notifyImagingReady(userIds, payload);
+  }
+
+  async getAssignedDoctorNotificationTargets(caseId: string) {
+    return this.getAssignedDoctorUserIds(caseId);
   }
 }

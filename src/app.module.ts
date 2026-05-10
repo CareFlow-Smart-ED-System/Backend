@@ -11,6 +11,7 @@ import { QueueModule } from '@modules/queue/queue.module';
 import { PatientsModule } from '@modules/patients/patients.module';
 import { TriageModule } from '@modules/triage/triage.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
+import { CasesModule } from '@modules/cases/cases.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { NotificationsModule } from '@modules/notifications/notifications.module
     DoctorsModule,
     TriageModule,
     QueueModule,
+    CasesModule,
     PatientsModule,
     NotificationsModule,
   ],

@@ -22,10 +22,16 @@ export class PatientsService {
     private passwordService: PasswordService,
   ) {}
 
-  // ─── Quick Register ────────────────────────────────────────────────────────
-  // Creates a placeholder User + Patient for emergency arrivals.
-  // A random @emergency.local email is used so linkAccount can detect it later.
+  // ─── Helper: resolve Doctor.id from JWT user.sub ───────────────────────────
+  private async getDoctorId(user: any): Promise<string | null> {
+    const profile = await this.prisma.user.findUnique({
+      where: { id: user.sub },
+      include: { doctor: { select: { id: true } } },
+    });
+    return profile?.doctor?.id ?? null;
+  }
 
+  // ─── Quick Register ────────────────────────────────────────────────────────
   async quickRegister(dto: QuickRegisterDto) {
     const { firstName, lastName, dateOfBirth, gender, phone } = dto;
 
@@ -73,7 +79,6 @@ export class PatientsService {
   }
 
   // ─── Link Account ──────────────────────────────────────────────────────────
-
   async linkAccount(patientId: string, linkAccountDto: LinkAccountDto) {
     const { email, password } = linkAccountDto;
 
@@ -99,10 +104,7 @@ export class PatientsService {
 
     const updatedUser = await this.prisma.user.update({
       where: { id: patient.userId },
-      data: {
-        email,
-        passwordHash: hashedPassword,
-      },
+      data: { email, passwordHash: hashedPassword },
     });
 
     return {
@@ -113,42 +115,34 @@ export class PatientsService {
   }
 
   // ─── Get Profile ───────────────────────────────────────────────────────────
-
   async getProfile(patientId: string, user: any) {
     const patient = await this.prisma.patient.findUniqueOrThrow({
       where: { id: patientId },
       include: {
         user: true,
-        emergencyCases: {
-          include: {
-            caseDoctor: true,  // ← correct relation name from schema
-          },
-        },
+        emergencyCases: { include: { caseDoctor: true } },
       },
     });
 
     if (user.role === UserRole.DOCTOR) {
+      const doctorId = await this.getDoctorId(user);  // ← fixed
       const caseAssigned = patient.emergencyCases.some((ec) =>
-        ec.caseDoctor.some((cd) => cd.doctorId === user.doctorId),
+        ec.caseDoctor.some((cd) => cd.doctorId === doctorId),
       );
-
       if (!caseAssigned) {
         throw new ForbiddenException('Doctor is not authorized to view this patient');
       }
     } else if (user.role === UserRole.NURSE) {
-      // Active = WAITING or UNDER_TREATMENT (not yet COMPLETED)
       const hasActiveCase = patient.emergencyCases.some(
         (ec) =>
           ec.status === CaseStatus.WAITING ||
           ec.status === CaseStatus.UNDER_TREATMENT,
       );
-
       if (!hasActiveCase) {
         throw new ForbiddenException('Patient does not have active cases');
       }
     }
 
-    // Calculate age from dateOfBirth stored on User
     let age: number | null = null;
     if (patient.user.dateOfBirth) {
       const dob = patient.user.dateOfBirth;
@@ -170,8 +164,6 @@ export class PatientsService {
   }
 
   // ─── Update Profile ────────────────────────────────────────────────────────
-  // firstName/lastName/phone live on Patient; dateOfBirth/gender live on User.
-
   async updateProfile(patientId: string, updatePatientDto: UpdatePatientDto) {
     const patient = await this.prisma.patient.findUniqueOrThrow({
       where: { id: patientId },
@@ -185,23 +177,9 @@ export class PatientsService {
       age--;
     }
 
-    const userUpdateData: any = {
-      dateOfBirth: dob,
-      gender: updatePatientDto.gender,
-    };
-
-    const nameParts: string[] = [];
-    if (updatePatientDto.firstName) nameParts.push(updatePatientDto.firstName);
-    if (updatePatientDto.lastName) nameParts.push(updatePatientDto.lastName);
-    const composed = nameParts.join(' ').trim();
-    if (composed) userUpdateData.displayName = composed;
-
     await this.prisma.user.update({
       where: { id: patient.userId },
-      data: {
-        dateOfBirth: dob,
-        gender: updatePatientDto.gender,
-      },
+      data: { dateOfBirth: dob, gender: updatePatientDto.gender },
     });
 
     await this.prisma.patient.update({
@@ -220,7 +198,6 @@ export class PatientsService {
   }
 
   // ─── Medical Records ───────────────────────────────────────────────────────
-
   async getMedicalRecords(
     caseId: string,
     queryDto: GetMedicalRecordsQueryDto,
@@ -231,14 +208,13 @@ export class PatientsService {
 
     const emergencyCase = await this.prisma.emergencyCase.findUniqueOrThrow({
       where: { id: caseId },
-      include: {
-        caseDoctor: true,  // ← correct relation name
-      },
+      include: { caseDoctor: true },
     });
 
     if (user.role === UserRole.DOCTOR) {
+      const doctorId = await this.getDoctorId(user);  // ← fixed
       const isAssigned = emergencyCase.caseDoctor.some(
-        (cd) => cd.doctorId === user.doctorId,
+        (cd) => cd.doctorId === doctorId,
       );
       if (!isAssigned) {
         throw new ForbiddenException('Doctor is not authorized to view this case');
@@ -253,22 +229,16 @@ export class PatientsService {
     }
 
     const [medicalRecords, totalRecords] = await Promise.all([
-      this.prisma.medicalRecord.findMany({
-        where: { caseId },
-        skip,
-        take: limit,
-      }),
+      this.prisma.medicalRecord.findMany({ where: { caseId }, skip, take: limit }),
       this.prisma.medicalRecord.count({ where: { caseId } }),
     ]);
-
-    const totalPages = Math.ceil(totalRecords / limit);
 
     return {
       patientId: emergencyCase.patientId,
       total: totalRecords,
       page,
       limit,
-      totalPages,
+      totalPages: Math.ceil(totalRecords / limit),
       data: medicalRecords.map((record) => ({
         recordId: record.id,
         caseId: record.caseId,
@@ -290,10 +260,10 @@ export class PatientsService {
       include: { caseDoctor: true },
     });
 
+    const doctorId = await this.getDoctorId(user);  // ← fixed
     const isAssigned = emergencyCase.caseDoctor.some(
-      (cd) => cd.doctorId === user.doctorId,
+      (cd) => cd.doctorId === doctorId,
     );
-
     if (!isAssigned) {
       throw new ForbiddenException('Doctor is not assigned to this case');
     }
@@ -301,7 +271,6 @@ export class PatientsService {
     const existingRecord = await this.prisma.medicalRecord.findUnique({
       where: { caseId },
     });
-
     if (existingRecord) {
       throw new BadRequestException('Medical record already exists for this case');
     }
@@ -334,10 +303,10 @@ export class PatientsService {
       include: { caseDoctor: true },
     });
 
+    const doctorId = await this.getDoctorId(user);  // ← fixed
     const isAssigned = emergencyCase.caseDoctor.some(
-      (cd) => cd.doctorId === user.doctorId,
+      (cd) => cd.doctorId === doctorId,
     );
-
     if (!isAssigned) {
       throw new ForbiddenException('Doctor is not assigned to this case');
     }
@@ -345,7 +314,6 @@ export class PatientsService {
     const medicalRecord = await this.prisma.medicalRecord.findUniqueOrThrow({
       where: { id: recordId },
     });
-
     if (medicalRecord.caseId !== caseId) {
       throw new BadRequestException('Medical record does not belong to this case');
     }

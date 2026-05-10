@@ -19,7 +19,6 @@ import { Roles } from '@common/decorators/roles.decorator';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
-import { Injectable, NotFoundException } from '@nestjs/common';
 
 @ApiTags('nurses')
 @ApiCookieAuth('accessToken')
@@ -36,7 +35,7 @@ export class NursesController {
   async createVitalSigns(@Param('caseId') caseId: string, @Body() dto: CreateVitalSignsDto,
     @CurrentUser() user: any,
 ) {
-   return this.nursesService.createVitalSigns(caseId, user.nurseId, dto);
+    return this.nursesService.createVitalSigns(caseId, user?.nurseId ?? user?.id ?? user?.sub, dto);
   }
 
   @Get('vital-signs/:caseId')
@@ -56,7 +55,7 @@ export class NursesController {
   @ApiOperation({ summary: 'Mark a medication as administered' })
   @ApiResponse({ status: 201, description: 'Medication administered successfully' })
   async administerMedication(@Param('medicationId') medicationId: string, @Body() dto: AdministerMedicationDto,@CurrentUser() user: any,) {
-    return this.nursesService.administerMedication(dto.medicationId ?? medicationId, user.nurseId, dto);
+    return this.nursesService.administerMedication(dto.medicationId ?? medicationId, user?.nurseId ?? user?.id ?? user?.sub, dto);
   }
 
   @Post('notes/:caseId')
@@ -66,7 +65,7 @@ export class NursesController {
   @ApiOperation({ summary: 'Create a clinical note for a case' })
   @ApiResponse({ status: 201, description: 'Clinical note created successfully' })
   async createClinicalNote(@Param('caseId') caseId: string, @Body() dto: CreateNoteDto, @CurrentUser() user: any) {
-    return this.nursesService.createClinicalNote(caseId, user.nurseId, dto);
+    return this.nursesService.createClinicalNote(caseId, user?.nurseId ?? user?.id ?? user?.sub, dto);
   }
 
   @Get('notes/:caseId')

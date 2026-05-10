@@ -30,6 +30,7 @@ import { UpdateCaseStatusDto } from './dto/update-case-status.dto';
 import { AssignDoctorDto } from './dto/assign-doctor.dto';
 import { ListCasesQueryDto } from './dto/list-cases.query';
 import { CaseStatus } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 
 @ApiTags('cases')
 @ApiCookieAuth('accessToken')
@@ -118,7 +119,7 @@ export class CasesController {
 
   @Post(':caseId/doctors')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'DOCTOR')
+  @Roles(UserRole.ADMIN, UserRole.NURSE)
   @HttpCode(201)
   @ApiOperation({ summary: 'Assign a doctor to a case' })
   @ApiParam({ name: 'caseId', type: 'string' })

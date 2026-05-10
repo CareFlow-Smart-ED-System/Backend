@@ -4,9 +4,10 @@ import { PassportModule } from '@nestjs/passport';
 import { NursesController } from './nurses.controller';
 import { NursesService } from './nurses.service';
 import { PrismaModule } from '@/prisma/prisma.module';
+import { NotificationsModule } from '@modules/notifications/notifications.module';
 
 @Module({
-  imports: [PrismaModule,PassportModule,
+  imports: [PrismaModule,PassportModule, NotificationsModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '24h' },

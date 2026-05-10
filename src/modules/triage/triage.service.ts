@@ -6,26 +6,33 @@ import {
 import { PrismaService } from '@/prisma/prisma.service';
 import { UserRole, TriageSeverity, NotificationType } from '@prisma/client';
 import { CreateTriageDto } from './dto/create-triage.dto';
+import { NotificationsService } from '@modules/notifications/notifications.service';
 
 @Injectable()
 export class TriageService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   // ── 1. CREATE TRIAGE ──────────────────────────────────────────────────────
   async createTriage(
     caseId: string,
     dto: CreateTriageDto,
-    currentUser: { id: string; displayName: string; role: UserRole },
+    currentUser: { id?: string; sub?: string; displayName?: string; role: UserRole },
   ) {
     // Verify case exists and is not completed
     const emergencyCase = await this.prisma.emergencyCase.findUnique({
       where: { id: caseId },
+      include: { patient: { include: { user: true } } },
     });
     if (!emergencyCase) throw new NotFoundException('Case not found');
 
     // Get nurse profile from the logged-in user
+    const nurseUserId = currentUser.id ?? currentUser.sub;
     const nurse = await this.prisma.nurse.findUnique({
-      where: { userId: currentUser.id },
+    where: { userId: nurseUserId },
+    include: { user: { select: { displayName: true } } },
     });
     if (!nurse) throw new ForbiddenException('Nurse profile not found');
 
@@ -49,30 +56,19 @@ export class TriageService {
       data: {
         caseId,
         type: 'TRIAGE',
-        performedBy: currentUser.displayName,
+        performedBy: currentUser.displayName ?? 'Nurse',
         details: `Severity classified as ${dto.severity}`,
       },
     });
 
+    await this.notificationsService.notifyQueueUpdated(caseId);
+
     // If CRITICAL — notify all assigned doctors immediately
     if (dto.severity === TriageSeverity.CRITICAL) {
-      const assignments = await this.prisma.caseDoctor.findMany({
-        where: { caseId },
-        include: { doctor: { include: { user: true } } },
+      await this.notificationsService.notifyCriticalAlert({
+        caseId,
+        message: `CRITICAL PATIENT ARRIVED: ${emergencyCase.patient.user.displayName}`,
       });
-
-      await Promise.all(
-        assignments.map((a) =>
-          this.prisma.notification.create({
-            data: {
-              userId: a.doctor.user.id,
-              caseId,
-              type: NotificationType.CRITICAL_ALERT,
-              message: `CRITICAL patient alert for case ${caseId}`,
-            },
-          }),
-        ),
-      );
     }
 
     return {

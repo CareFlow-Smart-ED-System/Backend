@@ -1,8 +1,8 @@
-import { IsEnum, IsUUID } from 'class-validator';
+import { IsEnum, IsString } from 'class-validator';
 import { CaseDoctorRole } from '@prisma/client';
 
 export class AssignDoctorDto {
-  @IsUUID()
+  @IsString()
   doctorId: string;
 
   @IsEnum(CaseDoctorRole)

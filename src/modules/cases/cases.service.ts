@@ -14,10 +14,14 @@ import {
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseStatusDto } from './dto/update-case-status.dto';
 import { AssignDoctorDto } from './dto/assign-doctor.dto';
+import { NotificationsService } from '@modules/notifications/notifications.service';
 
 @Injectable()
 export class CasesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   private async getUserById(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -100,6 +104,8 @@ export class CasesService {
         details: 'Emergency case created with status WAITING',
       },
     });
+
+    await this.notificationsService.notifyQueueUpdated(emergencyCase.id);
 
     return {
       message: 'Emergency case created successfully',
@@ -372,6 +378,8 @@ export class CasesService {
       },
     });
 
+    await this.notificationsService.notifyQueueUpdated(caseId);
+
     return {
       message: 'Case status updated successfully',
       caseId: updated.id,
@@ -424,71 +432,112 @@ export class CasesService {
   }
 
   // 7. ASSIGN DOCTOR
-  async assignDoctor(
-    caseId: string,
-    dto: AssignDoctorDto,
-    currentUser: { sub: string; role: UserRole },
-  ) {
-    const emergencyCase = await this.prisma.emergencyCase.findUnique({
-      where: { id: caseId },
-    });
+//   async assignDoctor(
+//     caseId: string,
+//     dto: AssignDoctorDto,
+//     currentUser: { sub: string; role: UserRole },
+//   ) {
+//     const emergencyCase = await this.prisma.emergencyCase.findUnique({
+//       where: { id: caseId },
+//     });
 
-    if (!emergencyCase) {
-      throw new NotFoundException('Case not found');
-    }
+//     if (!emergencyCase) {
+//       throw new NotFoundException('Case not found');
+//     }
 
-    if (currentUser.role === UserRole.DOCTOR) {
-      await this.assertDoctorAssignedToCase(caseId, currentUser.sub);
-    } else if (currentUser.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only admins and doctors can assign doctors');
-    }
+//     // if (currentUser.role === UserRole.DOCTOR) {
+//     //   await this.assertDoctorAssignedToCase(caseId, currentUser.sub);
+//     // } else if (currentUser.role !== UserRole.ADMIN) {
+//     //   throw new ForbiddenException('Only admins and doctors can assign doctors');
+//     // }
 
-    const doctor = await this.prisma.doctor.findUnique({
-      where: { id: dto.doctorId },
-      include: { user: true },
-    });
+//     const doctor = await this.prisma.doctor.findUnique({
+//       where: { id: dto.doctorId },
+//       include: { user: true },
+//     });
 
-    if (!doctor) {
-      throw new NotFoundException('Doctor not found');
-    }
+//     if (!doctor) {
+//       throw new NotFoundException('Doctor not found');
+//     }
 
-    const existing = await this.prisma.caseDoctor.findUnique({
-      where: { caseId_doctorId: { caseId, doctorId: dto.doctorId } },
-    });
+//     const existing = await this.prisma.caseDoctor.findUnique({
+//       where: { caseId_doctorId: { caseId, doctorId: dto.doctorId } },
+//     });
 
-    if (existing) {
-      throw new ConflictException('Doctor already assigned to this case');
-    }
+//     if (existing) {
+//       throw new ConflictException('Doctor already assigned to this case');
+//     }
 
-    if (dto.role === CaseDoctorRole.PRIMARY) {
-      const existingPrimary = await this.prisma.caseDoctor.findFirst({
-        where: { caseId, role: CaseDoctorRole.PRIMARY },
-      });
+//     if (dto.role === CaseDoctorRole.PRIMARY) {
+//       const existingPrimary = await this.prisma.caseDoctor.findFirst({
+//         where: { caseId, role: CaseDoctorRole.PRIMARY },
+//       });
 
-      if (existingPrimary) {
-        throw new ConflictException('Case already has a primary doctor');
-      }
-    }
+//       if (existingPrimary) {
+//         throw new ConflictException('Case already has a primary doctor');
+//       }
+//     }
 
-    await this.prisma.caseDoctor.create({
-      data: { caseId, doctorId: dto.doctorId, role: dto.role },
-    });
+//     await this.prisma.caseDoctor.create({
+//       data: { caseId, doctorId: dto.doctorId, role: dto.role },
+//     });
 
-    const actor = await this.getUserById(currentUser.sub);
-    await this.prisma.timelineEvent.create({
-      data: {
-        caseId,
-        type: 'DOCTOR_ASSIGNED',
-        performedBy: actor.displayName,
-        details: `Doctor assigned as ${dto.role}`,
-      },
-    });
+//     const actor = await this.getUserById(currentUser.sub);
+//     await this.prisma.timelineEvent.create({
+//       data: {
+//         caseId,
+//         type: 'DOCTOR_ASSIGNED',
+//         performedBy: actor.displayName,
+//         details: `Doctor assigned as ${dto.role}`,
+//       },
+//     });
 
-    return {
-      message: 'Doctor assigned to case successfully',
+//     return {
+//       message: 'Doctor assigned to case successfully',
+//       caseId,
+//       doctorId: dto.doctorId,
+//       role: dto.role,
+//     };
+//   }
+// }
+async assignDoctor(caseId: string, dto: AssignDoctorDto, currentUser: { sub: string; role: UserRole }) {
+  const emergencyCase = await this.prisma.emergencyCase.findUnique({
+    where: { id: caseId },
+  });
+  if (!emergencyCase) throw new NotFoundException('Case not found');
+
+  const doctor = await this.prisma.doctor.findUnique({
+    where: { id: dto.doctorId },
+    include: { user: true },
+  });
+  if (!doctor) throw new NotFoundException('Doctor not found');
+
+  const existing = await this.prisma.caseDoctor.findFirst({
+    where: { caseId, doctorId: dto.doctorId },
+  });
+  if (existing) throw new BadRequestException('Doctor already assigned to this case');
+
+  const assignment = await this.prisma.caseDoctor.create({
+    data: {
       caseId,
       doctorId: dto.doctorId,
       role: dto.role,
-    };
+    },
+  });
+
+  if (doctor?.user?.id) {
+    await this.notificationsService.notifyDoctorAssigned(doctor.user.id, {
+      caseId,
+      message: 'You have been assigned to a patient',
+      type: 'DOCTOR_ASSIGNED',
+    });
   }
+
+  return {
+    message: 'Doctor assigned successfully',
+    caseId,
+    doctorId: dto.doctorId,
+    role: assignment.role,
+  };
+}
 }
