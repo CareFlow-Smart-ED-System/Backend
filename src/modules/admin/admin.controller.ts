@@ -115,6 +115,28 @@ export class AdminController {
           role: 'RECEPTIONIST',
         },
       },
+      labStaff: {
+        summary: 'Create a Lab Staff user',
+        value: {
+          displayName: 'Lab Tech Omar',
+          email: 'omar.lab@careflow.com',
+          password: 'SecurePass123!',
+          dateOfBirth: '1992-07-18',
+          gender: 'MALE',
+          role: 'LAB_STAFF',
+        },
+      },
+      radiologist: {
+        summary: 'Create a Radiologist',
+        value: {
+          displayName: 'Dr. Lina Hassan',
+          email: 'lina.radiology@careflow.com',
+          password: 'SecurePass123!',
+          dateOfBirth: '1988-11-02',
+          gender: 'FEMALE',
+          role: 'RADIOLOGIST',
+        },
+      },
     },
   })
   @ApiResponse({
@@ -131,7 +153,10 @@ export class AdminController {
             userId: { type: 'string' },
             displayName: { type: 'string' },
             email: { type: 'string' },
-            role: { type: 'string', enum: ['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'] },
+            role: {
+              type: 'string',
+              enum: ['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'LAB_STAFF', 'RADIOLOGIST'],
+            },
             mustChangePassword: { type: 'boolean' },
             specialization: { type: 'string', nullable: true },
             department: { type: 'string', nullable: true },

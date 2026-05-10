@@ -73,9 +73,9 @@ The backend now sets HTTP-only auth cookies on login and refresh. The frontend s
 **Conditional Fields:**
 - If `role = DOCTOR`, include `specialization`
 - If `role = NURSE`, include `department`
-- If `role = RECEPTIONIST` or `ADMIN`, no additional fields are required
+- If `role = RECEPTIONIST`, `LAB_STAFF`, `RADIOLOGIST`, or `ADMIN`, no additional fields are required
 
-**Allowed Roles:** `ADMIN | DOCTOR | NURSE | RECEPTIONIST`  
+**Allowed Roles:** `ADMIN | DOCTOR | NURSE | RECEPTIONIST | LAB_STAFF | RADIOLOGIST`  
 **Allowed Gender:** `MALE | FEMALE`
 
 **Authentication Note:** The admin only needs to log in once. After login, the browser stores the auth cookies and automatically sends them with protected requests when credentials are enabled. For manual API testing, you can still use the returned token in an `Authorization` header if needed, but the dashboard should not require that.
@@ -110,6 +110,36 @@ Content-Type: application/json
     "updatedAt": "2026-05-09T06:07:19.534Z",
     "message": "Staff user created successfully. User must change password on first login."
   }
+}
+```
+
+#### Create LAB_STAFF User
+```powershell
+POST http://localhost:3000/api/v1/admin/users
+Content-Type: application/json
+
+{
+  "displayName": "Lab Tech Omar",
+  "email": "omar.lab@careflow.com",
+  "password": "TempPass123!",
+  "dateOfBirth": "1992-07-18",
+  "gender": "MALE",
+  "role": "LAB_STAFF"
+}
+```
+
+#### Create RADIOLOGIST User
+```powershell
+POST http://localhost:3000/api/v1/admin/users
+Content-Type: application/json
+
+{
+  "displayName": "Dr. Lina Hassan",
+  "email": "lina.radiology@careflow.com",
+  "password": "TempPass123!",
+  "dateOfBirth": "1988-11-02",
+  "gender": "FEMALE",
+  "role": "RADIOLOGIST"
 }
 ```
 
