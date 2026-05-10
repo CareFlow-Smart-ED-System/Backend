@@ -219,4 +219,48 @@ export class DoctorsController {
     @CurrentUser() user: any,) {
     return this.doctorsService.prescribeMedication(caseId, user, dto);
   }
+
+  @Get('cases/:caseId/medications')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('DOCTOR', 'NURSE')
+@ApiOperation({ summary: 'Get prescribed medications for a case' })
+@ApiParam({ name: 'caseId', type: 'string', description: 'The case UUID' })
+@ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+@ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+@ApiResponse({
+  status: 200,
+  description: 'Medications list retrieved successfully',
+  schema: {
+    type: 'object',
+    properties: {
+      caseId: { type: 'string' },
+      total: { type: 'number' },
+      page: { type: 'number' },
+      limit: { type: 'number' },
+      totalPages: { type: 'number' },
+      data: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            caseId: { type: 'string' },
+            name: { type: 'string' },
+            dosage: { type: 'string' },
+            prescribedBy: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+      },
+    },
+  },
+})
+async getMedications(
+  @Param('caseId') caseId: string,
+  @CurrentUser() user: any,
+  @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+  @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+) {
+  return this.doctorsService.getMedications(caseId, user, page, limit);
+}
 }

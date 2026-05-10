@@ -1,7 +1,7 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { PrescribeMedicationDto } from './dto/prescribe-medication.dto';
-import { Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationsService } from '@modules/notifications/notifications.service';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 
 @Injectable()
 export class DoctorsService {
@@ -163,4 +163,60 @@ export class DoctorsService {
       },
     };
   }
+  async getMedications(
+  caseId: string,
+  user: any,
+  page: number = 1,
+  limit: number = 20,
+) {
+  const emergencyCase = await this.prisma.emergencyCase.findUnique({
+    where: { id: caseId },
+    include: { caseDoctor: true },
+  });
+  if (!emergencyCase) throw new NotFoundException('Case not found');
+
+  if (user.role === 'DOCTOR') {
+    const doctorId = await this.getDoctorId(user);
+    const isAssigned = emergencyCase.caseDoctor.some(
+      (cd) => cd.doctorId === doctorId,
+    );
+    if (!isAssigned) {
+      throw new ForbiddenException('Doctor is not assigned to this case');
+    }
+  } else if (user.role === 'NURSE') {
+    const isActive =
+      emergencyCase.status === 'WAITING' ||
+      emergencyCase.status === 'UNDER_TREATMENT';
+    if (!isActive) {
+      throw new ForbiddenException('Can only view medications for active cases');
+    }
+  }
+
+  const skip = (page - 1) * limit;
+  const [medications, total] = await Promise.all([
+    this.prisma.medication.findMany({
+      where: { caseId },
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'asc' },
+    }),
+    this.prisma.medication.count({ where: { caseId } }),
+  ]);
+
+  return {
+    caseId,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    data: medications.map((m) => ({
+      id: m.id,
+      caseId: m.caseId,
+      name: m.name,
+      dosage: m.dosage,
+      prescribedBy: m.doctorId,
+      createdAt: m.createdAt,
+    })),
+  };
+}
 }
