@@ -63,7 +63,7 @@ export class CasesController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DOCTOR', 'NURSE', 'ADMIN')
+  @Roles('DOCTOR', 'NURSE', 'ADMIN', 'LAB_STAFF', 'RADIOLOGIST')
   @ApiOperation({ summary: 'Get active cases' })
   @ApiQuery({ name: 'status', required: false, enum: CaseStatus })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
@@ -109,7 +109,7 @@ export class CasesController {
 
   @Get(':caseId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DOCTOR', 'NURSE', 'ADMIN')
+  @Roles('DOCTOR', 'NURSE', 'ADMIN', 'LAB_STAFF', 'RADIOLOGIST')
   @ApiOperation({ summary: 'Get case details' })
   @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
   @ApiResponse({
@@ -134,7 +134,7 @@ export class CasesController {
 
   @Get(':caseId/timeline')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DOCTOR', 'NURSE', 'ADMIN')
+  @Roles('DOCTOR', 'NURSE', 'ADMIN', 'LAB_STAFF', 'RADIOLOGIST')
   @ApiOperation({ summary: 'Get case timeline' })
   @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
   @ApiResponse({
@@ -193,7 +193,7 @@ export class CasesController {
 
   @Get(':caseId/summary')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DOCTOR', 'ADMIN')
+  @Roles('DOCTOR', 'ADMIN', 'LAB_STAFF', 'RADIOLOGIST')
   @ApiOperation({ summary: 'Get discharge summary for a case' })
   @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
   @ApiResponse({
