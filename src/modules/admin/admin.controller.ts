@@ -37,13 +37,13 @@ export class AdminController {
   constructor(private adminService: AdminService) {}
 
   @Get('users')
-  @ApiOperation({ summary: 'List all users (ADMIN only)' })
+  @ApiOperation({ summary: 'List all staff users (ADMIN only)' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
-  @ApiQuery({ name: 'role', required: false, type: String, description: 'Filter by role' })
+  @ApiQuery({ name: 'role', required: false, type: String, description: 'Filter by staff role' })
   @ApiResponse({
     status: 200,
-    description: 'List of all users',
+    description: 'List of all staff users',
     schema: {
       type: 'object',
       properties: {

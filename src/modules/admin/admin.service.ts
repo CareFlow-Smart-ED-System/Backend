@@ -23,10 +23,18 @@ export class AdminService {
     const limit = Number(query?.limit ?? 20);
     const skip = (page - 1) * limit;
 
+    const where = {
+      role: query?.role
+        ? query.role
+        : {
+            not: UserRole.PATIENT,
+          },
+    };
+
     const [total, users] = await Promise.all([
-      this.prisma.user.count({ where: query?.role ? { role: query.role } : {} }),
+      this.prisma.user.count({ where }),
       this.prisma.user.findMany({
-        where: query?.role ? { role: query.role } : {},
+        where,
         skip,
         take: limit,
         select: {
