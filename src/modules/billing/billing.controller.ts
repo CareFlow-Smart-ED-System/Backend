@@ -22,6 +22,7 @@ import { BillingService } from './billing.service';
 import { CreateBillingDto } from './dto/create-billing.dto';
 import { UpdateBillingStatusDto } from './dto/update-billing-status.dto';
 import { Roles } from '@common/decorators/roles.decorator';
+import { SkipResponseWrap } from '@common/decorators/skip-response-wrap.decorator';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
 import { BillingStatus, UserRole } from '@prisma/client';
@@ -96,6 +97,51 @@ export class BillingController {
     @Query('limit') limit = 20,
   ) {
     return this.billingService.getAllBills(status, Number(page), Number(limit));
+  }
+
+  @Get('billing/unbilled-completed-cases')
+  @Roles(UserRole.RECEPTIONIST, UserRole.ADMIN)
+  @SkipResponseWrap()
+  @ApiOperation({ summary: 'Get completed cases that do not yet have billing' })
+  @ApiResponse({
+    status: 200,
+    description: 'Completed cases without billing retrieved successfully',
+    schema: {
+      type: 'object',
+      example: {
+        total: 2,
+        data: [
+          {
+            caseId: 'uuid',
+            patientId: 'uuid',
+            patientName: 'John Doe',
+            severity: 'URGENT',
+            arrivalTime: '2026-05-10T12:00:00Z',
+            status: 'COMPLETED',
+          },
+        ],
+      },
+      properties: {
+        total: { type: 'number', example: 2 },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              caseId: { type: 'string', example: 'uuid' },
+              patientId: { type: 'string', example: 'uuid' },
+              patientName: { type: 'string', example: 'John Doe' },
+              severity: { type: 'string', example: 'URGENT' },
+              arrivalTime: { type: 'string', format: 'date-time', example: '2026-05-10T12:00:00Z' },
+              status: { type: 'string', example: 'COMPLETED' },
+            },
+          },
+        },
+      },
+    },
+  })
+  getUnbilledCompletedCases() {
+    return this.billingService.getUnbilledCompletedCases();
   }
 
   @Get('billing/:billId')

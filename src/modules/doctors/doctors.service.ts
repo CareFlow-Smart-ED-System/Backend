@@ -1,7 +1,13 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { PrescribeMedicationDto } from './dto/prescribe-medication.dto';
 import { NotificationsService } from '@modules/notifications/notifications.service';
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class DoctorsService {
@@ -17,6 +23,43 @@ export class DoctorsService {
     });
     if (!profile?.doctor?.id) throw new NotFoundException('Doctor profile not found');
     return profile.doctor.id;
+  }
+
+  private async assertReadableCase(caseId: string, user: any) {
+    const emergencyCase = await this.prisma.emergencyCase.findUnique({
+      where: { id: caseId },
+      include: { caseDoctor: true },
+    });
+
+    if (!emergencyCase) {
+      throw new NotFoundException('Case not found');
+    }
+
+    if (user.role === UserRole.DOCTOR) {
+      const doctorId = await this.getDoctorId(user);
+      const isAssigned = emergencyCase.caseDoctor.some(
+        (cd) => cd.doctorId === doctorId,
+      );
+      if (!isAssigned) {
+        throw new ForbiddenException('Doctor is not assigned to this case');
+      }
+    } else if (user.role === UserRole.NURSE) {
+      const isActive =
+        emergencyCase.status === 'WAITING' ||
+        emergencyCase.status === 'UNDER_TREATMENT';
+      if (!isActive) {
+        throw new ForbiddenException('Can only view investigation results for active cases');
+      }
+    } else if (
+      user.role === UserRole.LAB_STAFF ||
+      user.role === UserRole.RADIOLOGIST
+    ) {
+      // Lab and radiology staff can read investigation data for all cases.
+    } else {
+      throw new ForbiddenException('Unauthorized access to this case');
+    }
+
+    return emergencyCase;
   }
 
   async listDoctors(page: number = 1, limit: number = 20) {
@@ -87,13 +130,20 @@ export class DoctorsService {
     };
   }
 
-  async getLabResults(caseId: string, page: number = 1, limit: number = 10) {
+  async getLabResults(caseId: string, user: any, page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
-    const exists = await this.prisma.emergencyCase.findUnique({ where: { id: caseId } });
-    if (!exists) throw new NotFoundException('Case not found');
+    await this.assertReadableCase(caseId, user);
+    if (
+      user?.role !== UserRole.DOCTOR &&
+      user?.role !== UserRole.NURSE &&
+      user?.role !== UserRole.LAB_STAFF
+    ) {
+      throw new ForbiddenException('Unauthorized access to this case');
+    }
+    const prisma = this.prisma as any;
     const [results, total] = await Promise.all([
-      this.prisma.labResult.findMany({ where: { caseId }, skip, take: limit }),
-      this.prisma.labResult.count({ where: { caseId } }),
+      prisma.labResult.findMany({ where: { caseId }, skip, take: limit }),
+      prisma.labResult.count({ where: { caseId } }),
     ]);
     return {
       caseId,
@@ -106,18 +156,27 @@ export class DoctorsService {
         type: r.type,
         result: r.result,
         date: r.date,
-        status: 'AVAILABLE',
+        status: r.status,
+        ...(r.reportFileUrl ? { reportFileUrl: r.reportFileUrl } : {}),
+        ...(r.reportFileName ? { reportFileName: r.reportFileName } : {}),
       })),
     };
   }
 
-  async getImagingReports(caseId: string, page: number = 1, limit: number = 10) {
+  async getImagingReports(caseId: string, user: any, page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
-    const exists = await this.prisma.emergencyCase.findUnique({ where: { id: caseId } });
-    if (!exists) throw new NotFoundException('Case not found');
+    await this.assertReadableCase(caseId, user);
+    if (
+      user?.role !== UserRole.DOCTOR &&
+      user?.role !== UserRole.NURSE &&
+      user?.role !== UserRole.RADIOLOGIST
+    ) {
+      throw new ForbiddenException('Unauthorized access to this case');
+    }
+    const prisma = this.prisma as any;
     const [reports, total] = await Promise.all([
-      this.prisma.imagingReport.findMany({ where: { caseId }, skip, take: limit }),
-      this.prisma.imagingReport.count({ where: { caseId } }),
+      prisma.imagingReport.findMany({ where: { caseId }, skip, take: limit }),
+      prisma.imagingReport.count({ where: { caseId } }),
     ]);
     return {
       caseId,
@@ -128,10 +187,163 @@ export class DoctorsService {
       data: reports.map((r) => ({
         id: r.id,
         type: r.type,
+        ...(r.region ? { region: r.region } : {}),
         report: r.report,
         date: r.date,
-        status: 'AVAILABLE',
+        status: r.status,
+        ...(r.reportFileUrl ? { reportFileUrl: r.reportFileUrl } : {}),
+        ...(r.reportFileName ? { reportFileName: r.reportFileName } : {}),
       })),
+    };
+  }
+
+  async createLabOrder(caseId: string, user: any, dto: any) {
+    await this.assertReadableCase(caseId, user);
+    const doctorId = await this.getDoctorId(user);
+    const prisma = this.prisma as any;
+
+    const created = await prisma.labResult.create({
+      data: {
+        caseId,
+        type: dto.type,
+        result: '',
+        notes: dto.notes ?? null,
+        date: new Date(),
+        status: 'PENDING',
+        createdAt: new Date(),
+      },
+    });
+
+    return {
+      id: created.id,
+      caseId: created.caseId,
+      type: created.type,
+      notes: created.notes,
+      date: created.date,
+      status: created.status,
+    };
+  }
+
+  async createImagingOrder(caseId: string, user: any, dto: any) {
+    await this.assertReadableCase(caseId, user);
+    const doctorId = await this.getDoctorId(user);
+    const prisma = this.prisma as any;
+
+    const created = await prisma.imagingReport.create({
+      data: {
+        caseId,
+        type: dto.type,
+        region: dto.region ?? null,
+        report: '',
+        summary: dto.summary ?? null,
+        date: new Date(),
+        status: 'PENDING',
+        createdAt: new Date(),
+      },
+    });
+
+    return {
+      id: created.id,
+      caseId: created.caseId,
+      type: created.type,
+      region: created.region,
+      summary: created.summary,
+      date: created.date,
+      status: created.status,
+    };
+  }
+
+  private sanitizeFileName(fileName: string) {
+    return fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  }
+
+  async uploadLabReport(
+    labResultId: string,
+    user: any,
+    file: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('reportFile is required');
+    }
+
+    const prisma = this.prisma as any;
+    const labResult = await prisma.labResult.findUnique({
+      where: { id: labResultId },
+    });
+
+    if (!labResult) {
+      throw new NotFoundException('Lab result not found');
+    }
+
+    const reportFileName = this.sanitizeFileName(file.originalname);
+    const reportFileUrl = `/uploads/lab-reports/${reportFileName}`;
+
+    const updated = await prisma.labResult.update({
+      where: { id: labResultId },
+      data: {
+        reportFileName,
+        reportFileUrl,
+        status: 'AVAILABLE',
+        uploadedBy: user.sub,
+        uploadedAt: new Date(),
+      },
+    });
+
+    return {
+      message: 'Lab report uploaded successfully',
+      data: {
+        id: updated.id,
+        caseId: updated.caseId,
+        reportFileUrl: updated.reportFileUrl,
+        reportFileName: updated.reportFileName,
+        uploadedBy: updated.uploadedBy,
+        uploadedAt: updated.uploadedAt,
+      },
+    };
+  }
+
+  async uploadImagingReport(
+    imagingId: string,
+    user: any,
+    file: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('reportFile is required');
+    }
+
+    const prisma = this.prisma as any;
+    const imagingReport = await prisma.imagingReport.findUnique({
+      where: { id: imagingId },
+    });
+
+    if (!imagingReport) {
+      throw new NotFoundException('Imaging report not found');
+    }
+
+    const reportFileName = this.sanitizeFileName(file.originalname);
+    const reportFileUrl = `/uploads/imaging-reports/${reportFileName}`;
+
+    const updated = await prisma.imagingReport.update({
+      where: { id: imagingId },
+      data: {
+        reportFileName,
+        reportFileUrl,
+        status: 'AVAILABLE',
+        reportedBy: user.sub,
+        uploadedAt: new Date(),
+      },
+    });
+
+    return {
+      message: 'Imaging report uploaded successfully',
+      data: {
+        id: updated.id,
+        caseId: updated.caseId,
+        reportFileUrl: updated.reportFileUrl,
+        reportFileName: updated.reportFileName,
+        reportedBy: updated.reportedBy,
+        uploadedAt: updated.uploadedAt,
+      },
     };
   }
 

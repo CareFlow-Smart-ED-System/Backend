@@ -8,8 +8,6 @@ import {
   Query,
   UseGuards,
   HttpCode,
-  DefaultValuePipe,
-  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -19,9 +17,6 @@ import {
   ApiResponse,
   ApiTags,
   ApiParam,
-  ApiOkResponse,
-  ApiExtraModels,
-  getSchemaPath,
 } from '@nestjs/swagger';
 import { CasesService } from './cases.service';
 import { Roles } from '@common/decorators/roles.decorator';
@@ -35,11 +30,9 @@ import { AdministerMedicationDto } from './dto/administer-medication.dto';
 import { ListCasesQueryDto } from './dto/list-cases.query';
 import { CaseStatus } from '@prisma/client';
 import { UserRole } from '@prisma/client';
-import { GetMedicalRecordsResponseDto } from './dto/medical-records-response.dto';
 
 @ApiTags('cases')
 @ApiCookieAuth('accessToken')
-@ApiExtraModels(GetMedicalRecordsResponseDto)
 @Controller('api/v1/cases')
 export class CasesController {
   constructor(private casesService: CasesService) {}
@@ -70,7 +63,7 @@ export class CasesController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DOCTOR', 'NURSE', 'ADMIN')
+  @Roles('DOCTOR', 'NURSE', 'ADMIN', 'LAB_STAFF', 'RADIOLOGIST')
   @ApiOperation({ summary: 'Get active cases' })
   @ApiQuery({ name: 'status', required: false, enum: CaseStatus })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
@@ -116,7 +109,7 @@ export class CasesController {
 
   @Get(':caseId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DOCTOR', 'NURSE', 'ADMIN')
+  @Roles('DOCTOR', 'NURSE', 'ADMIN', 'LAB_STAFF', 'RADIOLOGIST')
   @ApiOperation({ summary: 'Get case details' })
   @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
   @ApiResponse({
@@ -141,7 +134,7 @@ export class CasesController {
 
   @Get(':caseId/timeline')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DOCTOR', 'NURSE', 'ADMIN')
+  @Roles('DOCTOR', 'NURSE', 'ADMIN', 'LAB_STAFF', 'RADIOLOGIST')
   @ApiOperation({ summary: 'Get case timeline' })
   @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
   @ApiResponse({
@@ -169,25 +162,6 @@ export class CasesController {
   })
   async getCaseTimeline(@Param('caseId') caseId: string) {
     return this.casesService.getCaseTimeline(caseId);
-  }
-
-  @Get(':caseId/medical-records')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.DOCTOR, UserRole.NURSE)
-  @ApiOperation({ summary: 'Get medical records for a case' })
-  @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
-  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
-  @ApiOkResponse({ description: 'Medical records list retrieved successfully', schema: { $ref: getSchemaPath(GetMedicalRecordsResponseDto) } })
-  @ApiResponse({ status: 404, description: 'Case not found' })
-  @ApiResponse({ status: 403, description: 'Unauthorized access to this case' })
-  async getMedicalRecords(
-    @Param('caseId') caseId: string,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-    @CurrentUser() user: any,
-  ) {
-    return this.casesService.getMedicalRecords(caseId, { page, limit }, user);
   }
 
   @Patch(':caseId/status')
@@ -219,7 +193,7 @@ export class CasesController {
 
   @Get(':caseId/summary')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('DOCTOR', 'ADMIN')
+  @Roles('DOCTOR', 'ADMIN', 'LAB_STAFF', 'RADIOLOGIST')
   @ApiOperation({ summary: 'Get discharge summary for a case' })
   @ApiParam({ name: 'caseId', type: 'string', description: 'The case ID' })
   @ApiResponse({

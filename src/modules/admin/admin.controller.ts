@@ -37,13 +37,13 @@ export class AdminController {
   constructor(private adminService: AdminService) {}
 
   @Get('users')
-  @ApiOperation({ summary: 'List all users (ADMIN only)' })
+  @ApiOperation({ summary: 'List all staff users (ADMIN only)' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
-  @ApiQuery({ name: 'role', required: false, type: String, description: 'Filter by role' })
+  @ApiQuery({ name: 'role', required: false, type: String, description: 'Filter by staff role' })
   @ApiResponse({
     status: 200,
-    description: 'List of all users',
+    description: 'List of all staff users',
     schema: {
       type: 'object',
       properties: {
@@ -115,6 +115,28 @@ export class AdminController {
           role: 'RECEPTIONIST',
         },
       },
+      labStaff: {
+        summary: 'Create a Lab Staff user',
+        value: {
+          displayName: 'Lab Tech Omar',
+          email: 'omar.lab@careflow.com',
+          password: 'SecurePass123!',
+          dateOfBirth: '1992-07-18',
+          gender: 'MALE',
+          role: 'LAB_STAFF',
+        },
+      },
+      radiologist: {
+        summary: 'Create a Radiologist',
+        value: {
+          displayName: 'Dr. Lina Hassan',
+          email: 'lina.radiology@careflow.com',
+          password: 'SecurePass123!',
+          dateOfBirth: '1988-11-02',
+          gender: 'FEMALE',
+          role: 'RADIOLOGIST',
+        },
+      },
     },
   })
   @ApiResponse({
@@ -131,7 +153,10 @@ export class AdminController {
             userId: { type: 'string' },
             displayName: { type: 'string' },
             email: { type: 'string' },
-            role: { type: 'string', enum: ['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'] },
+            role: {
+              type: 'string',
+              enum: ['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'LAB_STAFF', 'RADIOLOGIST'],
+            },
             mustChangePassword: { type: 'boolean' },
             specialization: { type: 'string', nullable: true },
             department: { type: 'string', nullable: true },
