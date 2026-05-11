@@ -1,212 +1,402 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client-js"
+  output       = "../node_modules/.prisma/client"
   moduleFormat = "cjs"
-  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
   provider = "postgresql"
-  
+}
+
+model User {
+  id                  String         @id @default(uuid())
+  email               String         @unique
+  passwordHash        String
+  displayName         String
+  dateOfBirth         DateTime?
+  gender              Gender?
+  role                UserRole
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  mustChangePassword  Boolean        @default(false)
+  failedLoginAttempts Int            @default(0)
+  lockedUntil         DateTime?
+  auditLogs           AuditLog[]
+  doctor              Doctor?
+  notifications       Notification[]
+  nurse               Nurse?
+  patient             Patient?
+  refreshTokens       RefreshToken[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Patient {
+  id             String          @id @default(uuid())
+  userId         String          @unique
+  phone          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  firstName      String          @default("Unknown")
+  lastName       String          @default("Unknown")
+  appointments   Appointment[]
+  emergencyCases EmergencyCase[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Doctor {
+  id              String        @id @default(uuid())
+  userId          String        @unique
+  specialization  String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  appointments    Appointment[]
+  caseAssignments CaseDoctor[]
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medications     Medication[]
+
+  @@index([userId])
+  @@index([specialization])
+}
+
+model Nurse {
+  id            String       @id @default(uuid())
+  userId        String       @unique
+  department    String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes         NurseNote[]
+  triageRecords Triage[]
+  vitalSigns    VitalSigns[]
+
+  @@index([userId])
+}
+
+model EmergencyCase {
+  id             String          @id @default(uuid())
+  patientId      String
+  status         CaseStatus      @default(WAITING)
+  arrivalTime    DateTime        @default(now())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  billing        Billing?
+  caseDoctor     CaseDoctor[]
+  patient        Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  imagingReports ImagingReport[]
+  labResults     LabResult[]
+  medicalRecord  MedicalRecord?
+  medications    Medication[]
+  notifications  Notification[]
+  notes          NurseNote[]
+  timelineEvents TimelineEvent[]
+  triage         Triage[]
+  vitalSigns     VitalSigns[]
+
+  @@index([patientId])
+  @@index([status])
+  @@index([arrivalTime])
+}
+
+model Triage {
+  id               String         @id @default(uuid())
+  caseId           String         
+  severity         TriageSeverity
+  temperature      Float?
+  systolic         Int?
+  diastolic        Int?
+  heartRate        Int?
+  oxygenSaturation Float?
+  respiratoryRate  Int?
+  nurseId          String
+  triageTime       DateTime       @default(now())
+  createdAt        DateTime       @default(now())
+  case             EmergencyCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  nurse            Nurse          @relation(fields: [nurseId], references: [id])
+
+  @@index([caseId])
+  @@index([nurseId])
+  @@index([severity])
+  @@index([triageTime])
+}
+
+model CaseDoctor {
+  id         String         @id @default(uuid())
+  caseId     String
+  doctorId   String
+  role       CaseDoctorRole
+  assignedAt DateTime       @default(now())
+  case       EmergencyCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  doctor     Doctor         @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, doctorId])
+  @@index([caseId])
+  @@index([doctorId])
+}
+
+model VitalSigns {
+  id               String        @id @default(uuid())
+  caseId           String
+  temperature      Float?
+  systolic         Int?
+  diastolic        Int?
+  heartRate        Int?
+  oxygenSaturation Float?
+  respiratoryRate  Int?
+  nurseId          String
+  timestamp        DateTime      @default(now())
+  case             EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  nurse            Nurse         @relation(fields: [nurseId], references: [id])
+
+  @@index([caseId])
+  @@index([nurseId])
+  @@index([timestamp])
+}
+
+model MedicalRecord {
+  id              String        @id @default(uuid())
+  caseId          String        @unique
+  diagnosis       String?
+  notes           String?
+  chronicDiseases String?
+  familyHistory   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  case            EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+model Medication {
+  id              String                     @id @default(uuid())
+  caseId          String
+  name            String
+  dosage          String
+  doctorId        String
+  createdAt       DateTime                   @default(now())
+  case            EmergencyCase              @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  doctor          Doctor                     @relation(fields: [doctorId], references: [id])
+  administrations MedicationAdministration[]
+
+  @@index([caseId])
+  @@index([doctorId])
+}
+
+model MedicationAdministration {
+  id             String     @id @default(uuid())
+  medicationId   String
+  administeredAt DateTime   @default(now())
+  medication     Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+
+  @@index([medicationId])
+}
+
+model LabResult {
+  id            String        @id @default(uuid())
+  caseId        String
+  type          String
+  result        String
+  notes         String?
+  date          DateTime      @default(now())
+  status        String        @default("AVAILABLE")
+  createdAt     DateTime      @default(now())
+  reportFileUrl  String?
+  reportFileName String?
+  uploadedBy     String?
+  uploadedAt     DateTime?
+  case          EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([date])
+}
+
+model ImagingReport {
+  id            String        @id @default(uuid())
+  caseId        String
+  type          String
+  region        String?
+  report        String
+  summary       String?
+  date          DateTime      @default(now())
+  status        String        @default("AVAILABLE")
+  createdAt     DateTime      @default(now())
+  reportFileUrl String?
+  reportFileName String?
+  reportedBy    String?
+  uploadedAt    DateTime?
+  case          EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([date])
+}
+
+model NurseNote {
+  id        String        @id @default(uuid())
+  caseId    String
+  nurseId   String
+  note      String
+  timestamp DateTime      @default(now())
+  case      EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  nurse     Nurse         @relation(fields: [nurseId], references: [id])
+
+  @@index([caseId])
+  @@index([nurseId])
+  @@index([timestamp])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  caseId    String?
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  case      EmergencyCase?   @relation(fields: [caseId], references: [id])
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([caseId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model Billing {
+  id        String        @id @default(uuid())
+  caseId    String        @unique
+  amount    Float
+  status    BillingStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  case      EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([status])
+}
+
+model Appointment {
+  id        String            @id @default(uuid())
+  patientId String
+  doctorId  String
+  date      DateTime
+  status    AppointmentStatus @default(SCHEDULED)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  doctor    Doctor            @relation(fields: [doctorId], references: [id])
+  patient   Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([date])
+  @@index([status])
+}
+
+model TimelineEvent {
+  id          String        @id @default(uuid())
+  caseId      String
+  type        String
+  performedBy String
+  details     String
+  timestamp   DateTime      @default(now())
+  case        EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([timestamp])
+}
+
+model AuditLog {
+  id         String          @id @default(uuid())
+  actionType AuditActionType
+  userId     String
+  targetId   String?
+  details    String?
+  timestamp  DateTime        @default(now())
+  user       User            @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([actionType])
+  @@index([timestamp])
 }
 
 enum UserRole {
   ADMIN
   DOCTOR
   NURSE
-  PATIENT
   RECEPTIONIST
+  PATIENT
+  LAB_STAFF
+  RADIOLOGIST
+}
+
+enum Gender {
+  MALE
+  FEMALE
 }
 
 enum CaseStatus {
-  Active
-  Resolved
-  Transferred
+  WAITING
+  UNDER_TREATMENT
+  COMPLETED
 }
 
-enum BillStatus {
-  Pending
-  Paid
-  Sent_to_Insurance
+enum TriageSeverity {
+  CRITICAL
+  URGENT
+  NON_URGENT
 }
 
-model User {
-  id            Int            @id @default(autoincrement()) @map("user_id")
-  name          String
-  email         String         @unique
-  passwordHash  String         @map("password_hash")
-  role          UserRole
-  
-  // Profile Relations (One-to-One)
-  patient       Patient?
-  doctor        Doctor?
-  nurse         Nurse?
-  
-  notifications Notification[]
+enum CaseDoctorRole {
+  PRIMARY
+  COLLABORATING
 }
 
-model Patient {
-  id           Int             @id @default(autoincrement()) @map("patient_id")
-  userId       Int             @unique @map("user_id")
-  user         User            @relation(fields: [userId], references: [id])
-  age          Int
-  gender       String
-  phone        String
-  
-  emergencyCases EmergencyCase[]
-  appointments   Appointment[]
+enum NotificationType {
+  LAB_RESULT
+  DOCTOR_ASSIGNED
+  VITALS_ABNORMAL
+  IMAGING_READY
+  CRITICAL_ALERT
+  NEW_PRESCRIPTION
 }
 
-model Doctor {
-  id             Int           @id @default(autoincrement()) @map("doctor_id")
-  userId         Int           @unique @map("user_id")
-  user           User          @relation(fields: [userId], references: [id])
-  specialization String
-  
-  caseAssignments CaseDoctor[]
-  medications     Medication[]
-  appointments    Appointment[]
+enum BillingStatus {
+  PENDING
+  PAID
+  SENT_TO_INSURANCE
 }
 
-model Nurse {
-  id           Int           @id @default(autoincrement()) @map("nurse_id")
-  userId       Int           @unique @map("user_id")
-  user         User          @relation(fields: [userId], references: [id])
-  
-  triages      Triage[]
-  vitalSigns   VitalSigns[]
-  nurseNotes   NurseNote[]
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
 }
 
-model EmergencyCase {
-  id           Int           @id @default(autoincrement()) @map("case_id")
-  patientId    Int           @map("patient_id")
-  patient      Patient       @relation(fields: [patientId], references: [id])
-  status       CaseStatus    @default(Active)
-  arrivalTime  DateTime      @default(now()) @map("arrival_time")
-
-  triage       Triage?
-  medicalRecord MedicalRecord?
-  billing      Billing?
-  
-  doctors      CaseDoctor[]
-  vitalSigns   VitalSigns[]
-  medications  Medication[]
-  labResults   LabResult[]
-  imagingReports ImagingReport[]
-  nurseNotes   NurseNote[]
-  notifications Notification[]
-}
-
-model Triage {
-  id         Int           @id @default(autoincrement()) @map("triage_id")
-  caseId     Int           @unique @map("case_id")
-  case       EmergencyCase @relation(fields: [caseId], references: [id])
-  severity   String
-  triageTime DateTime      @default(now()) @map("triage_time")
-  nurseId    Int           @map("nurse_id")
-  nurse      Nurse         @relation(fields: [nurseId], references: [id])
-}
-
-model CaseDoctor {
-  id       Int           @id @default(autoincrement())
-  caseId   Int           @map("case_id")
-  case     EmergencyCase @relation(fields: [caseId], references: [id])
-  doctorId Int           @map("doctor_id")
-  doctor   Doctor        @relation(fields: [doctorId], references: [id])
-  role     String        // e.g., Primary, Consultant
-}
-
-model VitalSigns {
-  id            Int           @id @default(autoincrement())
-  caseId        Int           @map("case_id")
-  case          EmergencyCase @relation(fields: [caseId], references: [id])
-  temperature   Float
-  bloodPressure String        @map("blood_pressure")
-  heartRate     Int           @map("heart_rate")
-  nurseId       Int           @map("nurse_id")
-  nurse         Nurse         @relation(fields: [nurseId], references: [id])
-  timestamp     DateTime      @default(now())
-}
-
-model MedicalRecord {
-  id              Int           @id @default(autoincrement()) @map("record_id")
-  caseId          Int           @unique @map("case_id")
-  case            EmergencyCase @relation(fields: [caseId], references: [id])
-  diagnosis       String
-  notes           String?
-  chronicDiseases String?       @map("chronic_diseases")
-  familyHistory   String?       @map("family_history")
-}
-
-model Medication {
-  id        Int           @id @default(autoincrement())
-  caseId    Int           @map("case_id")
-  case      EmergencyCase @relation(fields: [caseId], references: [id])
-  name      String
-  dosage    String
-  doctorId  Int           @map("doctor_id")
-  doctor    Doctor        @relation(fields: [doctorId], references: [id])
-}
-
-model LabResult {
-  id     Int           @id @default(autoincrement())
-  caseId Int           @map("case_id")
-  case   EmergencyCase @relation(fields: [caseId], references: [id])
-  type   String
-  result String
-  date   DateTime      @default(now())
-}
-
-model ImagingReport {
-  id     Int           @id @default(autoincrement())
-  caseId Int           @map("case_id")
-  case   EmergencyCase @relation(fields: [caseId], references: [id])
-  type   String
-  report String
-  date   DateTime      @default(now())
-}
-
-model NurseNote {
-  id        Int           @id @default(autoincrement())
-  caseId    Int           @map("case_id")
-  case      EmergencyCase @relation(fields: [caseId], references: [id])
-  nurseId   Int           @map("nurse_id")
-  nurse     Nurse         @relation(fields: [nurseId], references: [id])
-  note      String
-  timestamp DateTime      @default(now())
-}
-
-model Notification {
-  id        Int           @id @default(autoincrement())
-  userId    Int           @map("user_id")
-  user      User          @relation(fields: [userId], references: [id])
-  caseId    Int?          @map("case_id")
-  case      EmergencyCase? @relation(fields: [caseId], references: [id])
-  message   String
-  type      String
-  isRead    Boolean       @default(false) @map("is_read")
-  createdAt DateTime      @default(now()) @map("created_at")
-}
-
-model Billing {
-  id     Int           @id @default(autoincrement()) @map("bill_id")
-  caseId Int           @unique @map("case_id")
-  case   EmergencyCase @relation(fields: [caseId], references: [id])
-  amount Float
-  status BillStatus    @default(Pending)
-}
-
-model Appointment {
-  id        Int      @id @default(autoincrement()) @map("appointment_id")
-  patientId Int      @map("patient_id")
-  patient   Patient  @relation(fields: [patientId], references: [id])
-  doctorId  Int      @map("doctor_id")
-  doctor    Doctor   @relation(fields: [doctorId], references: [id])
-  date      DateTime
-  status    String   @default("Scheduled")
+enum AuditActionType {
+  USER_CREATED
+  USER_UPDATED
+  USER_DELETED
+  CASE_CREATED
+  CASE_STATUS_UPDATED
+  TRIAGE_RECORDED
+  MEDICATION_PRESCRIBED
+  VITAL_SIGNS_RECORDED
+  NOTE_ADDED
+  DOCTOR_ASSIGNED
 }

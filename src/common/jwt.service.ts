@@ -26,13 +26,13 @@ export class JwtService {
   generateToken(payload: JwtPayload): string {
     return jwt.sign(payload, this.secret, {
       expiresIn: this.expiresIn,
-    });
+    } as any);
   }
 
   generateRefreshToken(payload: JwtPayload): string {
     return jwt.sign(payload, this.refreshSecret, {
       expiresIn: this.refreshExpiresIn,
-    });
+    } as any);
   }
 
   verifyToken(token: string): JwtPayload {
